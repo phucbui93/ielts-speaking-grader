@@ -1,0 +1,2350 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS Speaking Grader v2.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f0f13;--surface:#16161d;--surface2:#1e1e28;--surface3:#252532;
+  --border:#2e2e3e;--accent:#7c6af7;--accent2:#5eead4;
+  --text:#e8e8f0;--text2:#9898b0;--text3:#5a5a72;
+  --red:#f87171;--yellow:#fbbf24;--orange:#fb923c;--green:#4ade80;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:11px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;gap:10px;flex-wrap:wrap;}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;white-space:nowrap;}
+.logo-icon{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.api-key-wrap{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:5px 10px;}
+.api-key-wrap label{font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap;}
+.api-key-wrap input{background:none;border:none;outline:none;color:var(--text2);font-size:11px;font-family:'JetBrains Mono',monospace;width:130px;}
+.api-status{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+.api-status.ok{background:rgba(74,222,128,.15);color:var(--green);}
+.api-status.bad{background:rgba(248,113,113,.15);color:var(--red);}
+.hdr-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);transition:all .2s;font-family:'Sora',sans-serif;white-space:nowrap;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+.hdr-btn.google{background:white;border-color:#ddd;color:#333;}
+.hdr-btn.google:hover{box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.goog-avatar{width:26px;height:26px;border-radius:50%;border:2px solid var(--accent2);cursor:pointer;}
+.kbd{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);}
+.kbd kbd{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:'JetBrains Mono',monospace;font-size:10px;}
+
+/* ── UPLOAD ── */
+#upload-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 57px);padding:40px;gap:0;}
+.upload-title{font-size:28px;font-weight:700;letter-spacing:-1px;margin-bottom:6px;text-align:center;}
+.upload-title span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.upload-sub{color:var(--text2);font-size:13px;margin-bottom:28px;text-align:center;}
+.upload-zone{width:100%;max-width:500px;border:2px dashed var(--border);border-radius:18px;padding:48px 32px;text-align:center;cursor:pointer;transition:all .3s;background:var(--surface);position:relative;}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(124,106,247,.06);transform:translateY(-2px);}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-icon{font-size:40px;margin-bottom:12px;display:block;}
+.upload-zone h3{font-size:16px;font-weight:600;margin-bottom:5px;}
+.upload-zone p{color:var(--text2);font-size:13px;}
+.upload-formats{margin-top:16px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
+.fmt-badge{font-size:11px;font-family:'JetBrains Mono',monospace;background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:5px;color:var(--text2);}
+.upload-or{margin:16px 0;color:var(--text3);font-size:13px;}
+.import-btn{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-size:13px;font-family:'Sora',sans-serif;transition:all .2s;}
+.import-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+.api-warning{margin-top:14px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:9px;padding:10px 14px;font-size:13px;color:var(--red);max-width:500px;text-align:center;display:none;}
+
+/* ── LOADING ── */
+#loading-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 57px);gap:20px;}
+.loader-ring{width:50px;height:50px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loader-title{font-size:15px;font-weight:600;}
+.loader-msg{font-size:13px;color:var(--text2);max-width:280px;text-align:center;line-height:1.6;min-height:34px;}
+.loader-steps{display:flex;flex-direction:column;gap:8px;min-width:240px;}
+.loader-step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text3);transition:color .3s;}
+.loader-step.active{color:var(--text);}
+.loader-step.done{color:var(--green);}
+.step-dot{width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .3s;}
+.loader-step.active .step-dot{background:var(--accent);animation:pulse 1s infinite;}
+.loader-step.done .step-dot{background:var(--green);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── ERROR BANNER ── */
+#error-banner{display:none;position:fixed;top:66px;left:50%;transform:translateX(-50%);background:#1a0808;border:1px solid rgba(248,113,113,.4);border-radius:11px;padding:12px 18px;font-size:13px;color:var(--red);z-index:999;max-width:500px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.6);}
+
+/* ── APP LAYOUT ── */
+#app-screen{display:none;height:calc(100vh - 57px);overflow:hidden;}
+.app-layout{display:grid;grid-template-columns:1fr 400px;height:100%;}
+
+/* ── LEFT PANEL ── */
+.left-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+
+/* Student nav bar */
+.student-nav{padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface);display:none;align-items:center;gap:10px;}
+.student-nav.show{display:flex;}
+.snav-info{display:flex;flex-direction:column;flex:1;min-width:0;}
+.snav-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.snav-meta{font-size:11px;color:var(--text3);}
+.snav-files{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.snav-file-btn{font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .2s;font-family:'Sora',sans-serif;}
+.snav-file-btn:hover{border-color:var(--accent);color:var(--accent);}
+.snav-file-btn.active{background:var(--accent);border-color:var(--accent);color:white;}
+.snav-actions{display:flex;gap:6px;}
+.snav-btn{font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .2s;font-family:'Sora',sans-serif;white-space:nowrap;}
+.snav-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+.snav-btn.export{border-color:rgba(94,234,212,.3);color:var(--accent2);}
+.snav-btn.export-audio{border-color:rgba(251,191,36,.3);color:var(--yellow);}
+.snav-btn.export-audio:hover{border-color:var(--yellow);color:var(--yellow);}
+
+/* Audio player */
+.audio-player{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);}
+.file-info{display:flex;align-items:center;gap:8px;margin-bottom:11px;}
+.file-name{font-size:13px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.file-dur{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text2);background:var(--surface2);padding:2px 6px;border-radius:4px;}
+.player-controls{display:flex;align-items:center;gap:10px;}
+.btn-ctrl{background:none;border:none;cursor:pointer;color:var(--text2);font-size:12px;padding:4px 7px;border-radius:6px;transition:all .2s;font-family:'Sora',sans-serif;}
+.btn-ctrl:hover{color:var(--text);background:var(--surface2);}
+.btn-play{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),#9b8ff8);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;color:white;font-size:15px;transition:all .2s;flex-shrink:0;}
+.btn-play:hover{transform:scale(1.06);filter:brightness(1.1);}
+.prog-wrap{flex:1;display:flex;flex-direction:column;gap:4px;}
+.prog-bar{width:100%;height:4px;background:var(--surface3);border-radius:2px;cursor:pointer;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0%;transition:width .1s linear;}
+.time-row{display:flex;justify-content:space-between;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text3);}
+.spd-btn{font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:3px 7px;border-radius:5px;cursor:pointer;transition:all .2s;}
+.spd-btn:hover{border-color:var(--accent);color:var(--accent);}
+.kbd-hint{font-size:10px;color:var(--text3);text-align:right;margin-top:4px;}
+
+/* Transcript */
+.transcript-area{flex:1;overflow-y:auto;padding:18px 20px;}
+.transcript-area::-webkit-scrollbar{width:3px;}
+.transcript-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.ts-head-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.ts-title{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text2);}
+.legend{display:flex;gap:10px;flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);}
+.leg-dot{width:8px;height:8px;border-radius:2px;}
+
+/* Transcript blocks */
+.ts-block{margin-bottom:22px;border-radius:9px;transition:background .3s,box-shadow .3s;padding:8px 10px;margin-left:-10px;margin-right:-10px;}
+.ts-block.active{background:rgba(124,106,247,.08);box-shadow:inset 3px 0 0 var(--accent);}
+.ts-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.ts-pb{width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);font-size:9px;transition:all .2s;flex-shrink:0;}
+.ts-pb:hover,.ts-block.active .ts-pb{background:var(--accent);color:white;border-color:var(--accent);}
+.ts-tm{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);font-weight:500;}
+.ts-txt{font-size:14px;line-height:2;color:var(--text);}
+
+/* Error highlights in transcript */
+/* Pronunciation: tô đỏ/vàng chỉ âm tiết sai - dùng ruby text */
+.ep-wrong{color:var(--red);border-bottom:2px solid var(--red);padding:0 1px;border-radius:2px;cursor:pointer;}
+.ep-warn{color:var(--yellow);border-bottom:2px solid var(--yellow);padding:0 1px;border-radius:2px;cursor:pointer;}
+/* Âm tiết đúng trong từ phát âm sai — giữ màu bình thường */
+.ep-wrong .syl-ok,.ep-warn .syl-ok{color:var(--text);}
+/* Âm tiết sai — tô đậm màu lỗi với gạch chân wavy */
+.syl-bad-wrong{color:var(--red);font-weight:700;text-decoration:underline;text-decoration-style:wavy;text-decoration-color:var(--red);}
+.syl-bad-warn{color:var(--yellow);font-weight:700;text-decoration:underline;text-decoration-style:wavy;text-decoration-color:var(--yellow);}
+/* Grammar: highlight vàng cả cụm */
+.eg{background:rgba(251,191,36,.22);border-radius:3px;padding:1px 2px;cursor:pointer;color:var(--text);}
+.eg.flash{background:rgba(251,191,36,.55);outline:2px solid var(--yellow);border-radius:3px;}
+/* Lexical: chỉ gạch chân, không đổi màu, không tô nền */
+.el{text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--orange);text-underline-offset:3px;cursor:pointer;color:inherit;background:none;}
+.el.flash{background:rgba(251,146,60,.18);border-radius:3px;outline:2px solid var(--orange);}
+/* Pron flash */
+.ep-wrong.flash,.ep-warn.flash{outline:2px solid white;border-radius:3px;}
+/* Right panel error items — clickable + flash */
+.gram-item{cursor:pointer;transition:background .2s;}
+.gram-item:hover{background:var(--surface3);}
+.gram-item.flash{background:rgba(251,191,36,.15);outline:2px solid var(--yellow);border-radius:9px;}
+.lex-item{cursor:pointer;transition:background .2s;}
+.lex-item:hover{background:var(--surface3);}
+.lex-item.flash{background:rgba(251,146,60,.15);outline:2px solid var(--orange);border-radius:9px;}
+.pron-word-row{cursor:pointer;transition:background .2s;border-radius:6px;padding:4px 6px;}
+.pron-word-row:hover{background:rgba(255,255,255,.05);}
+.pron-word-row.flash{background:rgba(248,113,113,.15);outline:2px solid var(--red);border-radius:6px;}
+
+/* ── RIGHT PANEL ── */
+.right-panel{display:flex;flex-direction:column;overflow-y:auto;background:var(--surface);}
+.right-panel::-webkit-scrollbar{width:3px;}
+.right-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.psec{padding:14px 18px;border-bottom:1px solid var(--border);}
+.slabel{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+
+/* Scores */
+.score-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.sc{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px;transition:border-color .2s;}
+.sc:hover{border-color:var(--accent);}
+.sc.primary{grid-column:1/-1;background:linear-gradient(135deg,rgba(124,106,247,.12),rgba(94,234,212,.06));border-color:rgba(124,106,247,.3);}
+.sc-name{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+.sc-val{font-size:23px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-1px;}
+.sc-bar-wrap{margin-top:5px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+.sc-bar{height:100%;border-radius:2px;transition:width 1.2s ease;width:0%;}
+.sc-note{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5;}
+
+/* Progress bar */
+.progress-banner{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.prog-label{font-size:12px;color:var(--text2);flex:1;}
+.prog-count{font-size:12px;font-weight:700;color:var(--accent2);}
+.prog-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.prog-track-fill{height:100%;background:var(--accent2);border-radius:2px;transition:width .5s;}
+
+/* Pron error cards */
+.pron-group{margin-bottom:10px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface2);}
+.pron-group-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;cursor:pointer;}
+.pron-group-hdr:hover{background:rgba(255,255,255,.03);}
+.pron-group-name{font-size:12px;font-weight:700;color:var(--text);}
+.pron-group-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
+.badge-red{background:rgba(248,113,113,.15);color:var(--red);}
+.badge-yellow{background:rgba(251,191,36,.15);color:var(--yellow);}
+.badge-orange{background:rgba(251,146,60,.15);color:var(--orange);}
+.pron-group-body{padding:0 13px 11px;}
+.pron-word-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.pron-word-row:last-child{border-bottom:none;}
+.pron-word-main{font-size:13px;font-weight:600;}
+.pron-word-wrong .pron-word-main{color:var(--red);}
+.pron-word-warn .pron-word-main{color:var(--yellow);}
+.pron-ipa-wrap{display:flex;align-items:center;gap:6px;}
+.pron-ipa{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);background:var(--surface3);padding:2px 6px;border-radius:4px;}
+.pron-ipa .ph-wrong{color:var(--red);font-weight:700;}
+.pron-ipa .ph-warn{color:var(--yellow);font-weight:700;}
+.pron-tip{margin-top:8px;font-size:11px;color:var(--text2);line-height:1.6;background:var(--surface3);padding:8px;border-radius:7px;border-left:3px solid var(--accent2);}
+
+/* Lexical errors */
+.lex-item{padding:10px 12px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);margin-bottom:7px;}
+.lex-orig{font-size:12px;color:var(--text2);text-decoration:line-through;margin-bottom:4px;}
+.lex-reason{font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5;}
+.lex-suggestions{display:flex;flex-direction:column;gap:5px;}
+.lex-sug{display:flex;align-items:flex-start;gap:8px;font-size:12px;}
+.lex-register{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;margin-top:1px;}
+.reg-natural{background:rgba(74,222,128,.15);color:var(--green);}
+.reg-casual{background:rgba(94,234,212,.15);color:var(--accent2);}
+.reg-formal{background:rgba(124,106,247,.15);color:var(--accent);}
+.lex-sug-text{color:var(--text);line-height:1.5;}
+
+/* Grammar errors */
+.gram-item{padding:9px 12px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);margin-bottom:7px;display:flex;align-items:flex-start;gap:8px;}
+.gram-dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0;margin-top:5px;}
+.gram-body{flex:1;}
+.gram-orig{font-size:12px;color:var(--text2);text-decoration:line-through;}
+.gram-fix{font-size:13px;font-weight:500;color:var(--text);}
+.gram-reason{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5;}
+.gram-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;transition:all .2s;}
+.gram-del:hover{background:rgba(248,113,113,.15);color:var(--red);}
+
+/* Add error */
+.add-btn{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);background:none;border:1px dashed var(--border);padding:6px 10px;border-radius:7px;cursor:pointer;width:100%;margin-top:6px;transition:all .2s;font-family:'Sora',sans-serif;}
+.add-btn:hover{border-color:var(--accent);color:var(--accent);}
+.add-form{display:none;flex-direction:column;gap:6px;margin-top:6px;padding:10px;background:var(--surface2);border-radius:9px;border:1px solid var(--border);}
+.add-form.show{display:flex;}
+.add-form input{background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:'Sora',sans-serif;outline:none;transition:border-color .2s;}
+.add-form input:focus{border-color:var(--accent);}
+.frow{display:flex;gap:6px;}
+.factions{display:flex;gap:6px;justify-content:flex-end;}
+.bsm{font-size:12px;padding:5px 11px;border-radius:6px;cursor:pointer;border:none;font-family:'Sora',sans-serif;font-weight:600;transition:all .2s;}
+.bp{background:var(--accent);color:white;}.bp:hover{filter:brightness(1.1);}
+.bg2{background:var(--surface3);color:var(--text2);}.bg2:hover{background:var(--border);}
+
+.new-btn{margin:14px 18px;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text2);cursor:pointer;font-size:13px;font-family:'Sora',sans-serif;transition:all .2s;}
+.new-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── RIGHT PANEL TABS ── */
+.rp-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;scrollbar-width:none;}
+.rp-tabs::-webkit-scrollbar{display:none;}
+.rp-tab{flex-shrink:0;padding:9px 12px;font-size:11px;font-weight:600;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;font-family:'Sora',sans-serif;white-space:nowrap;}
+.rp-tab:hover{color:var(--text2);}
+.rp-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.rp-panel{display:none;flex:1;overflow-y:auto;flex-direction:column;}
+.rp-panel.active{display:flex;}
+.rp-panel::-webkit-scrollbar{width:3px;}
+.rp-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.fluency-note{font-size:13px;color:var(--text2);line-height:1.8;padding:4px 0;}
+.fluency-note p{margin-bottom:8px;}
+
+/* History items */
+.hist-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .2s;}
+.hist-item:hover{border-color:var(--accent);}
+.hist-avatar{width:32px;height:32px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text2);flex-shrink:0;}
+.hist-info{flex:1;min-width:0;}
+.hist-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hist-meta{font-size:11px;color:var(--text3);}
+.hist-score{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent);flex-shrink:0;}
+
+/* ── TOOLTIP ── */
+.tt{display:none;position:fixed;background:var(--surface3);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-size:12px;max-width:240px;z-index:1000;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.5);line-height:1.6;}
+.tt.show{display:block;}
+.tt-word{font-weight:700;color:var(--accent2);margin-bottom:4px;font-size:13px;}
+.tt-ipa{font-family:'JetBrains Mono',monospace;color:var(--text2);font-size:11px;margin-bottom:3px;}
+.tt-ipa .ph-wrong{color:var(--red);font-weight:700;}
+.tt-ipa .ph-warn{color:var(--yellow);font-weight:700;}
+.tt-issue{color:var(--text);font-size:12px;}
+.tt-fix{color:var(--accent2);margin-top:4px;font-size:12px;}
+.tt-sep{border-top:1px solid var(--border);margin:6px 0;}
+.tt-register{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-right:4px;}
+
+/* ── CLASSROOM PANEL ── */
+.classroom-panel{position:fixed;top:57px;right:0;width:340px;height:calc(100vh - 57px);background:var(--surface);border-left:1px solid var(--border);z-index:200;display:none;flex-direction:column;overflow:hidden;}
+.classroom-panel.open{display:flex;}
+.cp-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.cp-title{font-size:14px;font-weight:700;}
+.cp-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:17px;line-height:1;}
+.cp-progress{padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:none;}
+.cp-progress.show{display:block;}
+.cp-prog-text{font-size:11px;color:var(--text2);margin-bottom:5px;}
+.cp-prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.cp-prog-fill{height:100%;background:var(--accent2);border-radius:2px;transition:width .4s;}
+.cp-tabs{display:flex;border-bottom:1px solid var(--border);}
+.cp-tab{flex:1;padding:9px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;transition:all .2s;}
+.cp-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.cp-body{flex:1;overflow-y:auto;padding:10px;}
+.cp-body::-webkit-scrollbar{width:3px;}
+.cp-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.cp-section-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin:10px 0 7px;}
+.course-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:8px;cursor:pointer;transition:background .2s;margin-bottom:3px;}
+.course-item:hover{background:var(--surface2);}
+.course-item.selected{background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.3);}
+.course-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.course-name{font-size:13px;font-weight:500;flex:1;}
+.assignment-item{padding:9px 11px;border-radius:8px;cursor:pointer;transition:background .2s;margin-bottom:3px;border:1px solid var(--border);background:var(--surface2);}
+.assignment-item:hover{border-color:var(--accent);}
+.assignment-item.speaking{border-color:rgba(124,106,247,.4);background:rgba(124,106,247,.06);}
+.assignment-title{font-size:13px;font-weight:600;margin-bottom:3px;}
+.assignment-meta{font-size:11px;color:var(--text3);}
+.speaking-badge{font-size:10px;font-weight:700;background:rgba(124,106,247,.2);color:var(--accent);padding:1px 6px;border-radius:8px;margin-left:6px;}
+.student-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:default;transition:background .2s;margin-bottom:3px;}
+.student-item:hover{background:var(--surface2);}
+.student-avatar{width:28px;height:28px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--text2);}
+.student-name{font-size:13px;font-weight:500;flex:1;}
+.student-status{font-size:10px;font-weight:700;padding:2px 6px;border-radius:9px;}
+.st-turned{background:rgba(74,222,128,.15);color:var(--green);}
+.st-missing{background:rgba(248,113,113,.15);color:var(--red);}
+.st-graded{background:rgba(94,234,212,.15);color:var(--accent2);}
+.grade-btn{display:flex;align-items:center;gap:4px;background:var(--accent);border:none;border-radius:6px;padding:4px 9px;color:white;font-size:11px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;transition:all .2s;flex-shrink:0;}
+.grade-btn:hover{filter:brightness(1.1);}
+.cp-loading{display:flex;align-items:center;justify-content:center;padding:28px;color:var(--text3);font-size:13px;gap:9px;}
+.cp-spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+.cp-empty{text-align:center;padding:28px 14px;color:var(--text3);font-size:13px;line-height:1.7;}
+.client-id-wrap{display:flex;flex-direction:column;gap:6px;padding:12px;background:var(--surface2);border-radius:9px;margin-bottom:10px;}
+.client-id-wrap label{font-size:11px;color:var(--text3);font-weight:600;}
+.client-id-wrap input{background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace;outline:none;width:100%;}
+.client-id-wrap input:focus{border-color:var(--accent);}
+.back-btn{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;padding:6px 0;transition:color .2s;}
+.back-btn:hover{color:var(--accent);}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<!-- TOOLTIP -->
+<div class="tt" id="tooltip">
+  <div class="tt-word" id="tt-w"></div>
+  <div class="tt-ipa" id="tt-ipa"></div>
+  <div class="tt-issue" id="tt-issue"></div>
+  <div class="tt-fix" id="tt-fix"></div>
+</div>
+
+<div id="error-banner"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo"><div class="logo-icon">🎙</div><span>IELTS Speaking Grader</span></div>
+  <div class="header-right">
+    <div class="api-key-wrap">
+      <label style="color:var(--accent2)">OPENAI</label>
+      <input type="password" id="oai-key" placeholder="sk-..." oninput="checkKey()" style="width:120px;">
+    </div>
+    <div class="api-key-wrap">
+      <label>CLAUDE</label>
+      <input type="password" id="api-key" placeholder="sk-ant-..." oninput="checkKey()" style="width:120px;">
+    </div>
+    <span class="api-status bad" id="api-status">Chưa có key</span>
+    <div style="width:1px;height:20px;background:var(--border)"></div>
+    <button class="hdr-btn" onclick="triggerImport()">📂 Mở JSON</button>
+    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importResult(event)">
+    <!-- Supabase Auth Button -->
+    <button class="hdr-btn" id="sb-login-btn" onclick="showAuthModal()" style="border-color:rgba(124,106,247,.4);color:var(--accent);">🔐 Đăng nhập</button>
+    <div id="sb-user-info" style="display:none;align-items:center;gap:8px;">
+      <div style="display:flex;flex-direction:column;align-items:flex-end;">
+        <span id="sb-user-name" style="font-size:11px;font-weight:600;color:var(--text)"></span>
+        <span style="font-size:10px;color:var(--text3)">Đã đăng nhập</span>
+      </div>
+      <div id="sb-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;cursor:pointer;" onclick="showUserMenu()"></div>
+    </div>
+    <button class="hdr-btn google" id="goog-login-btn" onclick="startGoogleLogin()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="14"> Classroom
+    </button>
+    <img id="goog-avatar" class="goog-avatar" style="display:none" onclick="toggleClassroomPanel()" title="Google Classroom">
+  </div>
+</header>
+
+<!-- AUTH MODAL -->
+<div id="auth-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:380px;max-width:90vw;">
+    <div style="font-size:20px;font-weight:700;margin-bottom:6px;">🔐 Đăng nhập</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">Đăng nhập để lưu kết quả chấm bài tự động</div>
+    <div id="auth-tabs" style="display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;">
+      <button onclick="switchAuthTab('login')" id="tab-login" style="flex:1;padding:8px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;">Đăng nhập</button>
+      <button onclick="switchAuthTab('register')" id="tab-register" style="flex:1;padding:8px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;">Đăng ký</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div id="register-name-wrap" style="display:none;">
+        <input id="auth-name" placeholder="Tên của bạn" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:'Sora',sans-serif;outline:none;">
+      </div>
+      <input id="auth-email" type="email" placeholder="Email" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:'Sora',sans-serif;outline:none;">
+      <input id="auth-password" type="password" placeholder="Mật khẩu" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:'Sora',sans-serif;outline:none;">
+      <div id="auth-error" style="font-size:12px;color:var(--red);display:none;"></div>
+      <button id="auth-submit-btn" onclick="submitAuth()" style="width:100%;padding:11px;background:var(--accent);border:none;border-radius:9px;color:white;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;font-size:14px;margin-top:4px;">Đăng nhập</button>
+      <button onclick="closeAuthModal()" style="width:100%;padding:9px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text2);cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;">Huỷ</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER MENU -->
+<div id="user-menu" style="display:none;position:fixed;top:57px;right:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;z-index:400;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.3);">
+  <div id="user-menu-name" style="font-size:13px;font-weight:600;padding:8px 10px;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:4px;"></div>
+  <button onclick="showHistory()" style="width:100%;text-align:left;padding:8px 10px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px;font-family:'Sora',sans-serif;border-radius:6px;">📋 Lịch sử chấm bài</button>
+  <button onclick="signOut()" style="width:100%;text-align:left;padding:8px 10px;background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;font-family:'Sora',sans-serif;border-radius:6px;">🚪 Đăng xuất</button>
+</div>
+
+<!-- HISTORY MODAL -->
+<div id="history-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:600px;max-width:90vw;margin-bottom:40px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:700;">📋 Lịch sử chấm bài</div>
+      <button onclick="closeHistoryModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;">✕</button>
+    </div>
+    <div id="history-modal-list"></div>
+  </div>
+</div>
+
+<!-- CLASSROOM PANEL -->
+<div class="classroom-panel" id="classroom-panel">
+  <div class="cp-header">
+    <span class="cp-title">📚 Google Classroom</span>
+    <button class="cp-close" onclick="toggleClassroomPanel()">✕</button>
+  </div>
+  <div class="cp-progress" id="cp-progress">
+    <div class="cp-prog-text" id="cp-prog-text">0/0 học sinh đã chấm</div>
+    <div class="cp-prog-bar"><div class="cp-prog-fill" id="cp-prog-fill"></div></div>
+  </div>
+  <div class="cp-tabs">
+    <div class="cp-tab active" id="tab-courses" onclick="showTab('courses')">Lớp</div>
+    <div class="cp-tab" id="tab-assignments" onclick="showTab('assignments')">Bài tập</div>
+    <div class="cp-tab" id="tab-students" onclick="showTab('students')">Học sinh</div>
+  </div>
+  <div class="cp-body" id="cp-body">
+    <div class="client-id-wrap">
+      <label>Google OAuth Client ID</label>
+      <input type="text" id="google-client-id" placeholder="xxxx.apps.googleusercontent.com" oninput="saveClientId()">
+      <span style="font-size:11px;color:var(--text3)">Lấy từ Google Cloud Console → Credentials</span>
+    </div>
+    <div class="cp-empty">Đăng nhập Google để xem lớp học</div>
+  </div>
+</div>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <h1 class="upload-title">Chấm bài Speaking<br><span>nhanh & chính xác</span></h1>
+  <p class="upload-sub">Upload file ghi âm — Whisper transcribe, Claude phân tích 4 tiêu chí IELTS</p>
+  <div class="upload-zone" id="dropzone">
+    <input type="file" id="file-input" accept=".mp3,.m4a,.wav,.flac,.mp4,.webm,.ogg">
+    <span class="upload-icon">📁</span>
+    <h3>Kéo thả hoặc bấm để chọn file</h3>
+    <p>mp3, m4a, wav, flac — tối đa 25MB</p>
+    <div class="upload-formats">
+      <span class="fmt-badge">mp3</span><span class="fmt-badge">m4a</span>
+      <span class="fmt-badge">wav</span><span class="fmt-badge">flac</span><span class="fmt-badge">webm</span>
+    </div>
+  </div>
+  <div class="api-warning" id="api-warning">⚠️ Vui lòng nhập đủ OpenAI key và Claude key trước khi upload.</div>
+</div>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loader-ring"></div>
+  <div style="text-align:center"><div class="loader-title">Đang phân tích bài nói...</div><div class="loader-msg" id="lmsg">Chuẩn bị...</div></div>
+  <div class="loader-steps">
+    <div class="loader-step" id="s1"><span class="step-dot"></span>Whisper transcribe audio → văn bản</div>
+    <div class="loader-step" id="s2"><span class="step-dot"></span>Phân tích phát âm & trọng âm</div>
+    <div class="loader-step" id="s3"><span class="step-dot"></span>Kiểm tra ngữ pháp & từ vựng</div>
+    <div class="loader-step" id="s4"><span class="step-dot"></span>Tính điểm 4 tiêu chí IELTS</div>
+    <div class="loader-step" id="s5"><span class="step-dot"></span>Hoàn thiện báo cáo</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="app-layout">
+    <!-- LEFT -->
+    <div class="left-panel">
+      <!-- Student nav -->
+      <div class="student-nav" id="student-nav">
+        <div class="snav-info">
+          <div class="snav-name" id="snav-name">Học sinh</div>
+          <div class="snav-meta" id="snav-meta"></div>
+          <div class="snav-files" id="snav-files"></div>
+        </div>
+        <div class="snav-actions">
+          <button class="snav-btn export" id="btn-export-json" onclick="exportResult(false)" title="Chỉ lưu kết quả, không có audio (~100KB)">💾 JSON</button>
+          <button class="snav-btn export-audio" id="btn-export-audio" onclick="exportResult(true)" title="Lưu kết quả + audio nén (~1.5MB/file)">🔊 JSON+Audio</button>
+          <button class="snav-btn copy-result" onclick="copyResultText()">📋 Copy</button>
+        </div>
+      </div>
+      <!-- Audio -->
+      <div class="audio-player">
+        <div class="file-info">
+          <span>🎵</span>
+          <span class="file-name" id="fname">audio.mp3</span>
+          <span class="file-dur" id="fdur">--:--</span>
+        </div>
+        <div class="player-controls">
+          <button class="btn-ctrl" id="btn-rew">⏮ 5s</button>
+          <button class="btn-play" id="btn-play">▶</button>
+          <button class="btn-ctrl" id="btn-fwd">5s ⏭</button>
+          <div class="prog-wrap">
+            <div class="prog-bar" id="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+            <div class="time-row"><span id="t-cur">00:00:00</span><span id="t-tot">00:00:00</span></div>
+          </div>
+          <button class="spd-btn" id="spd-btn">1×</button>
+        </div>
+        <div class="kbd-hint"><span class="kbd"><kbd>Space</kbd> play/pause &nbsp; <kbd>←</kbd><kbd>→</kbd> tua 5s</span></div>
+        <audio id="aud" style="display:none"></audio>
+      </div>
+      <!-- Transcript -->
+      <div class="transcript-area">
+        <div class="ts-head-row">
+          <span class="ts-title">Bản ghi</span>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--red);border-radius:50%"></div>Phát âm sai</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--yellow);border-radius:50%"></div>Phát âm nhẹ</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--yellow);"></div>Ngữ pháp</div>
+            <div class="leg-item" style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--orange);font-size:10px;color:var(--text3)">Từ vựng</div>
+          </div>
+        </div>
+        <div id="ts-content"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+      <!-- TABS -->
+      <div class="rp-tabs">
+        <button class="rp-tab active" id="rpt-overview" onclick="switchRpTab('overview')">📊 Tổng quan</button>
+        <button class="rp-tab" id="rpt-pron" onclick="switchRpTab('pron')">🔴 Phát âm</button>
+        <button class="rp-tab" id="rpt-lexgram" onclick="switchRpTab('lexgram')">🟡 Từ vựng & NGP</button>
+        <button class="rp-tab" id="rpt-fluency" onclick="switchRpTab('fluency')">💬 Trôi chảy</button>
+        <button class="rp-tab" id="rpt-history" onclick="switchRpTab('history')">📋 Lịch sử</button>
+      </div>
+
+      <!-- TAB: OVERVIEW -->
+      <div class="rp-panel active" id="rpp-overview">
+        <div class="psec">
+          <div class="slabel">Điểm tổng quan</div>
+          <div class="score-grid">
+            <div class="sc primary">
+              <div class="sc-name">Overall Band Score (ước tính)</div>
+              <div class="sc-val" id="sv-ov" style="background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent">--</div>
+              <div class="sc-bar-wrap"><div class="sc-bar" id="sb-ov" style="background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div>
+            </div>
+            <div class="sc"><div class="sc-name">Fluency</div><div class="sc-val" id="sv-fl" style="color:var(--accent2)">--%</div><div class="sc-bar-wrap"><div class="sc-bar" id="sb-fl" style="background:var(--accent2)"></div></div><div class="sc-note" id="sn-fl"></div></div>
+            <div class="sc"><div class="sc-name">Pronunciation</div><div class="sc-val" id="sv-pr" style="color:var(--red)">--%</div><div class="sc-bar-wrap"><div class="sc-bar" id="sb-pr" style="background:var(--red)"></div></div><div class="sc-note" id="sn-pr"></div></div>
+            <div class="sc"><div class="sc-name">Lexical Resource</div><div class="sc-val" id="sv-lx" style="color:var(--orange)">--%</div><div class="sc-bar-wrap"><div class="sc-bar" id="sb-lx" style="background:var(--orange)"></div></div><div class="sc-note" id="sn-lx"></div></div>
+            <div class="sc"><div class="sc-name">Grammar</div><div class="sc-val" id="sv-gr" style="color:var(--yellow)">--%</div><div class="sc-bar-wrap"><div class="sc-bar" id="sb-gr" style="background:var(--yellow)"></div></div><div class="sc-note" id="sn-gr"></div></div>
+          </div>
+        </div>
+        <button class="new-btn" onclick="resetApp()">🔄 Phân tích bài mới</button>
+      </div>
+
+      <!-- TAB: PRONUNCIATION -->
+      <div class="rp-panel" id="rpp-pron">
+        <div class="psec">
+          <div class="slabel">🔴 Lỗi phát âm — bấm từ để tìm trong script</div>
+          <div id="pron-cards"></div>
+        </div>
+      </div>
+
+      <!-- TAB: LEXICAL + GRAMMAR -->
+      <div class="rp-panel" id="rpp-lexgram">
+        <div class="psec">
+          <div class="slabel">🟡 Lỗi ngữ pháp</div>
+          <div id="gram-list"></div>
+          <button class="add-btn" onclick="toggleForm('gram')">+ Thêm lỗi thủ công</button>
+          <div class="add-form" id="form-gram">
+            <div class="frow"><input id="fg-orig" placeholder="Cụm từ gốc" style="flex:1"><input id="fg-fix" placeholder="Sửa thành..." style="flex:1"></div>
+            <input id="fg-reason" placeholder="Giải thích (tuỳ chọn)">
+            <div class="factions"><button class="bsm bg2" onclick="toggleForm('gram')">Huỷ</button><button class="bsm bp" onclick="addErr('gram')">Thêm</button></div>
+          </div>
+        </div>
+        <div class="psec">
+          <div class="slabel">🟠 Lỗi từ vựng & diễn đạt</div>
+          <div id="lex-list"></div>
+          <button class="add-btn" onclick="toggleForm('lex')">+ Thêm lỗi thủ công</button>
+          <div class="add-form" id="form-lex">
+            <div class="frow"><input id="fl-orig" placeholder="Cụm từ gốc" style="flex:1"><input id="fl-fix" placeholder="Gợi ý thay thế" style="flex:1"></div>
+            <input id="fl-reason" placeholder="Lý do (tuỳ chọn)">
+            <div class="factions"><button class="bsm bg2" onclick="toggleForm('lex')">Huỷ</button><button class="bsm bp" onclick="addErr('lex')">Thêm</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: FLUENCY -->
+      <div class="rp-panel" id="rpp-fluency">
+        <div class="psec">
+          <div class="slabel">💬 Trôi chảy & Mạch lạc</div>
+          <div class="sc" style="margin-bottom:12px">
+            <div class="sc-name">Fluency & Coherence</div>
+            <div class="sc-val" id="sv-fl2" style="color:var(--accent2)">--%</div>
+            <div class="sc-bar-wrap"><div class="sc-bar" id="sb-fl2" style="background:var(--accent2)"></div></div>
+          </div>
+          <div class="fluency-note" id="fluency-detail"></div>
+        </div>
+      </div>
+
+      <!-- TAB: HISTORY -->
+      <div class="rp-panel" id="rpp-history">
+        <div class="psec">
+          <div class="slabel">📋 Lịch sử bài đã chấm</div>
+          <div id="history-list"><div style="font-size:13px;color:var(--text3)">Chưa có bài nào được chấm trong session này.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+const $=id=>document.getElementById(id);
+let audioFile=null,aud=null,playing=false,spdIdx=1;
+const spds=[0.75,1,1.25,1.5];
+let lastActiveIdx=-1, _lastActive=-1;
+let currentData=null;
+let currentStudentInfo=null;
+let gradedCount=0, totalStudents=0;
+let wordTimings=[];
+let sessionResults=[];
+let currentRpTab='overview';
+let historyItems=[];
+
+function switchRpTab(tab){
+  currentRpTab=tab;
+  ['overview','pron','lexgram','fluency','history'].forEach(t=>{
+    $('rpt-'+t)?.classList.toggle('active',t===tab);
+    $('rpp-'+t)?.classList.toggle('active',t===tab);
+  });
+  filterTranscriptByTab(tab);
+  if(tab==='history') renderHistory();
+}
+
+function filterTranscriptByTab(tab){
+  const showPron=tab==='overview'||tab==='pron';
+  const showGram=tab==='overview'||tab==='lexgram';
+  const showLex=tab==='overview'||tab==='lexgram';
+  document.querySelectorAll('.ep-wrong,.ep-warn').forEach(el=>{
+    el.style.opacity=showPron?'1':'0.2';
+    el.style.pointerEvents=showPron?'auto':'none';
+  });
+  document.querySelectorAll('.eg').forEach(el=>{
+    el.style.opacity=showGram?'1':'0.2';
+    el.style.pointerEvents=showGram?'auto':'none';
+  });
+  document.querySelectorAll('.el').forEach(el=>{
+    el.style.opacity=showLex?'1':'0.2';
+    el.style.pointerEvents=showLex?'auto':'none';
+  });
+}
+
+function renderHistory(){
+  const c=$('history-list');
+  if(!c)return;
+  if(!historyItems.length){c.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0">Chưa có bài nào trong session này.</div>';return;}
+  c.innerHTML='';
+  historyItems.forEach((item,i)=>{
+    const si=item.studentInfo||{};
+    const name=si.name||item.fileName||'Bài '+(i+1);
+    const initials=name.split(' ').slice(-2).map(n=>n[0]||'?').join('').toUpperCase();
+    const score=item.data?.scores?.overall||'--';
+    const time=item.timestamp.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+    const meta=[si.course,si.assignment].filter(Boolean).join(' · ')||item.fileName||'';
+    const d=document.createElement('div');d.className='hist-item';
+    d.innerHTML=`<div class="hist-avatar">${initials}</div>
+      <div class="hist-info"><div class="hist-name">${esc(name)}</div><div class="hist-meta">${esc(meta)} · ${time}</div></div>
+      <div class="hist-score">${score}</div>`;
+    d.onclick=()=>restoreFromHistory(i);
+    c.appendChild(d);
+  });
+}
+
+function addToHistory(data,studentInfo,fileName){
+  historyItems.unshift({data,studentInfo,fileName,timestamp:new Date(),audioSrc:aud?.src||null});
+  if(historyItems.length>50)historyItems.pop();
+}
+
+function restoreFromHistory(idx){
+  const item=historyItems[idx];if(!item)return;
+  currentData=item.data;currentStudentInfo=item.studentInfo||null;
+  if(item.audioSrc&&aud){
+    aud.src=item.audioSrc;
+    aud.onloadedmetadata=()=>{$('t-tot').textContent=fmt(aud.duration);$('fdur').textContent=fmt(aud.duration);};
+    aud.ontimeupdate=updateProg;aud.onended=()=>{playing=false;$('btn-play').textContent='▶';};
+  }
+  $('fname').textContent=item.fileName||'audio';
+  renderScoresOnly(item.data);
+  renderTranscript(item.data.segments||[],item.data.inlineErrors||[]);
+  renderPronGroups(item.data.pronunciationGroups||[], item.data.scores?.pronVsNative);
+  renderGrammarErrors(item.data.grammarErrors||[]);
+  renderLexErrors(item.data.lexicalErrors||[]);
+  renderFluencyTab(item.data);
+  if(currentStudentInfo)renderStudentNav();
+  switchRpTab('overview');_lastActive=-1;
+}
+
+function renderFluencyTab(data){
+  const flEl=$('sv-fl2');const barEl=$('sb-fl2');const noteEl=$('fluency-detail');
+  if(flEl)flEl.textContent=(data.scores?.fluency||'--')+'%';
+  if(barEl)setTimeout(()=>barEl.style.width=Math.min(data.scores?.fluency||0,100)+'%',200);
+  if(noteEl){
+    const note=data.notes?.fluency||'';
+    noteEl.innerHTML=note?`<p>${esc(note)}</p>`:'<p style="color:var(--text3)">Không có nhận xét.</p>';
+  }
+}
+
+// ══════════════════════════════════════════
+//  KEY MANAGEMENT
+// ══════════════════════════════════════════
+let _saveKeysTimer=null;
+function checkKey(){
+  const claude=$('api-key').value.trim();
+  const oai=$('oai-key').value.trim();
+  const st=$('api-status');
+  const ok=claude.startsWith('sk-ant-')&&claude.length>20&&oai.startsWith('sk-')&&oai.length>20;
+  if(ok){st.textContent='✓ Sẵn sàng';st.className='api-status ok';}
+  else if(claude.startsWith('sk-ant-')&&!oai.startsWith('sk-')){st.textContent='Thiếu OpenAI key';st.className='api-status bad';}
+  else if(!claude.startsWith('sk-ant-')&&oai.startsWith('sk-')){st.textContent='Thiếu Claude key';st.className='api-status bad';}
+  else{st.textContent='Chưa có key';st.className='api-status bad';}
+  // Lưu local trước
+  localStorage.setItem('oaiKey',oai);
+  localStorage.setItem('claudeKey',claude);
+  // Lưu Supabase sau 1.5s (debounce tránh gọi API liên tục)
+  clearTimeout(_saveKeysTimer);
+  _saveKeysTimer=setTimeout(saveKeysToSupabase,1500);
+}
+
+function loadSaved(){
+  // Load từ localStorage trước (nhanh)
+  const oai=localStorage.getItem('oaiKey');if(oai)$('oai-key').value=oai;
+  const cl=localStorage.getItem('claudeKey');if(cl)$('api-key').value=cl;
+  const cid=localStorage.getItem('gClientId');if(cid)$('google-client-id').value=cid;
+  checkKey();
+}
+
+// ══════════════════════════════════════════
+//  UPLOAD
+// ══════════════════════════════════════════
+const dz=$('dropzone'),fi=$('file-input');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files[0])startFile(e.dataTransfer.files[0]);});
+fi.addEventListener('change',e=>{if(e.target.files[0])startFile(e.target.files[0]);});
+
+function startFile(f){
+  const cl=$('api-key').value.trim(),oai=$('oai-key').value.trim();
+  if(!cl.startsWith('sk-ant-')||!oai.startsWith('sk-')){$('api-warning').style.display='block';return;}
+  $('api-warning').style.display='none';
+  audioFile=f;
+  showLoading();
+  runAnalysis(f,cl,null,oai);
+}
+
+function showLoading(){
+  $('upload-screen').style.display='none';
+  $('loading-screen').style.display='flex';
+  ['s1','s2','s3','s4','s5'].forEach(id=>$(id).className='loader-step');
+}
+
+// ══════════════════════════════════════════
+//  ANALYSIS PIPELINE
+// ══════════════════════════════════════════
+async function runAnalysis(file,claudeKey,manualText,oaiKey){
+  try{
+    let tr;
+    if(manualText){
+      step(1,'active');msg('Đang xử lý transcript...');
+      await wait(300);
+      tr=buildManualTranscript(manualText);
+      step(1,'done');
+    } else {
+      step(1,'active');msg('Whisper đang transcribe audio...');
+      tr=await transcribeWhisper(file,oaiKey);
+      step(1,'done');
+    }
+    step(2,'active');msg('Phân tích phát âm...');await wait(200);
+    step(2,'done');step(3,'active');msg('Kiểm tra ngữ pháp & từ vựng...');await wait(200);
+    step(3,'done');step(4,'active');msg('Claude đang chấm điểm IELTS...');
+    const data=await analyze(tr,claudeKey);
+    step(4,'done');step(5,'active');msg('Hoàn thiện...');await wait(300);
+    step(5,'done');await wait(200);
+    currentData=data;
+    render(data,file.name);
+  }catch(e){
+    showErr(e.message||'Lỗi không xác định. Kiểm tra API key và thử lại.');
+    resetToUpload();
+  }
+}
+
+async function transcribeWhisper(file,oaiKey){
+  if(file.size>25*1024*1024) throw new Error('File quá lớn — tối đa 25MB');
+  msg('Đang chuẩn bị audio...');
+
+  // Convert file sang webm qua AudioContext + MediaRecorder để đảm bảo Whisper nhận được
+  let sendFile=file;
+  try{
+    sendFile=await convertToWebm(file);
+    msg('Đang gửi tới Whisper...');
+  }catch(convErr){
+    // Fallback: gửi file gốc với tên đã fix
+    msg('Đang gửi tới Whisper...');
+    const origExt=(file.name||'').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'m4a';
+    const validExts=['flac','m4a','mp3','mp4','mpeg','mpga','oga','ogg','wav','webm'];
+    const ext=validExts.includes(origExt)?origExt:'m4a';
+    const mime={'m4a':'audio/mp4','mp3':'audio/mpeg','wav':'audio/wav','flac':'audio/flac',
+      'webm':'audio/webm','ogg':'audio/ogg','mp4':'audio/mp4','mpeg':'audio/mpeg'}[ext]||'audio/mp4';
+    sendFile=new File([new Blob([file],{type:mime})],`audio.${ext}`,{type:mime});
+  }
+
+  const form=new FormData();
+  form.append('file',sendFile,sendFile.name);
+  form.append('model','whisper-1');
+  form.append('language','en');
+  form.append('response_format','verbose_json');
+  form.append('timestamp_granularities[]','segment');
+  form.append('timestamp_granularities[]','word');
+  const r=await fetch('https://api.openai.com/v1/audio/transcriptions',{
+    method:'POST',headers:{'Authorization':'Bearer '+oaiKey},body:form
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error('Whisper lỗi: '+(e.error?.message||r.status));}
+  const d=await r.json();
+  msg('Transcribe xong!');
+  wordTimings=(d.words||[]).map(w=>({word:w.word,startSec:w.start,endSec:w.end}));
+  const segs=(d.segments||[]).map(s=>({timestamp:fmtTs2(s.start),startSec:s.start,text:s.text.trim()}));
+  const grouped=groupSegs(segs);
+  return{segments:grouped,full_text:d.text||grouped.map(s=>s.text).join(' ')};
+}
+
+async function convertToWebm(file){
+  // Decode audio → re-encode sang webm qua MediaRecorder
+  return new Promise(async(resolve,reject)=>{
+    try{
+      const arrayBuf=await file.arrayBuffer();
+      const audioCtx=new AudioContext();
+      const decoded=await audioCtx.decodeAudioData(arrayBuf);
+      audioCtx.close();
+
+      // Tạo stream từ AudioBuffer
+      const offCtx=new OfflineAudioContext(decoded.numberOfChannels,decoded.length,decoded.sampleRate);
+      const src=offCtx.createBufferSource();
+      src.buffer=decoded;
+      src.connect(offCtx.destination);
+      src.start();
+      const rendered=await offCtx.startRendering();
+
+      // Dùng MediaStreamDestination để record
+      const streamCtx=new AudioContext({sampleRate:16000});
+      const dest=streamCtx.createMediaStreamDestination();
+      const bufSrc=streamCtx.createBufferSource();
+      // Resample sang 16kHz
+      const offCtx2=new OfflineAudioContext(1,Math.ceil(rendered.length*16000/rendered.sampleRate),16000);
+      const src2=offCtx2.createBufferSource();
+      src2.buffer=rendered;
+      src2.connect(offCtx2.destination);
+      src2.start();
+      const resampled=await offCtx2.startRendering();
+      streamCtx.close();
+
+      // Encode sang webm
+      const wavBlob=audioBufferToWav(resampled);
+      const webmFile=new File([wavBlob],'audio.wav',{type:'audio/wav'});
+      resolve(webmFile);
+    }catch(e){reject(e);}
+  });
+}
+
+function groupSegs(segs){
+  if(!segs.length)return segs;
+  const out=[];let bucket={timestamp:segs[0].timestamp,startSec:segs[0].startSec||0,texts:[]};
+  segs.forEach((s,i)=>{
+    const cur=s.startSec!=null?s.startSec:(()=>{const p=s.timestamp.split(':').map(Number);return p.length===2?p[0]*60+p[1]:p[0]*3600+p[1]*60+p[2];})();
+    if(i===0){bucket.startSec=cur;bucket.texts.push(s.text);}
+    else if(cur-bucket.startSec<30){bucket.texts.push(s.text);}
+    else{out.push({timestamp:bucket.timestamp,startSec:bucket.startSec,text:bucket.texts.join(' ')});bucket={timestamp:s.timestamp,startSec:cur,texts:[s.text]};}
+  });
+  if(bucket.texts.length)out.push({timestamp:bucket.timestamp,startSec:bucket.startSec,text:bucket.texts.join(' ')});
+  return out;
+}
+
+function buildManualTranscript(text){
+  const sents=text.match(/[^.!?]+[.!?]+/g)||[text];
+  const per=Math.ceil(sents.length/3);
+  const segs=[];
+  for(let i=0;i<sents.length;i+=per){
+    const chunk=sents.slice(i,i+per).join(' ').trim();
+    const sec=i*4;
+    segs.push({timestamp:fmtTs2(sec),startSec:sec,text:chunk});
+  }
+  return{segments:segs,full_text:text.trim()};
+}
+
+async function analyze(tr,key){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({
+      model:'claude-haiku-4-5',
+      max_tokens:4096,
+      system:'Bạn là giám khảo IELTS Speaking. Trả lời ONLY JSON hợp lệ, không markdown. Tiếng Việt có dấu.',
+      messages:[{role:'user',content:`Phân tích transcript IELTS speaking học sinh Việt.
+
+TRANSCRIPT: ${tr.full_text.slice(0,2000)}
+
+Trả về JSON (tất cả ghi chú tiếng Việt có dấu, ngắn gọn):
+{
+  "scores":{"overall":"6.0","fluency":72,"pronunciation":65,"lexical":68,"grammar":70,"pronVsNative":68},
+  "notes":{"fluency":"VN","pronunciation":"VN","lexical":"VN","grammar":"VN"},
+  "pronunciationGroups":[{
+    "category":"Thiếu âm cuối|Sai trọng âm|Sai nguyên âm|Sai phụ âm",
+    "severity":"wrong|warn",
+    "words":[{"word":"w","ipa":"/x/","wrongPart":"âm tiết sai","scoreVsNative":45,"tip":"VN"}]
+  }],
+  "grammarErrors":[{"orig":"cụm sai NGUYÊN VĂN trong transcript","fix":"đúng","reason":"VN"}],
+  "lexicalErrors":[{"orig":"cụm sai","reason":"VN","suggestions":[{"text":"gợi ý","register":"natural|casual|formal"}]}],
+  "inlineErrors":[
+    {"word":"PHẢI LÀ TEXT CHÍNH XÁC XUẤT HIỆN TRONG TRANSCRIPT","type":"pron|gram|lex","severity":"wrong|warn","ipa":"/x/","wrongPart":"âm tiết sai","scoreVsNative":45,"note":"VN","fix":"sửa"}
+  ]
+}
+
+QUY TẮC QUAN TRỌNG cho inlineErrors:
+1. "word" PHẢI là chuỗi ký tự XUẤT HIỆN CHÍNH XÁC trong transcript (copy paste từ transcript)
+2. type=pron: word=1 từ, wrongPart=phần âm tiết sai cụ thể, severity=wrong(đỏ)/warn(vàng)
+3. type=gram: word=CỤM TỪ ĐẦY ĐỦ bị sai (ví dụ "they demands on"), KHÔNG phải từng từ riêng
+4. type=lex: word=từ/cụm không tự nhiên
+5. Bao gồm TẤT CẢ lỗi từ pronunciationGroups và grammarErrors vào inlineErrors
+6. scoreVsNative: 0-100, ước tính % phát âm đúng so với người bản ngữ (chỉ cho pron)
+7. pronVsNative trong scores: % tổng thể phát âm so với người bản ngữ
+8. Tối đa 8 inlineErrors`}]
+    })
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Lỗi Claude '+r.status);}
+  const d=await r.json();
+  let raw=d.content[0].text.trim().replace(/^```json\s*/,'').replace(/\s*```$/,'').trim();
+  raw=repairJSON(raw);
+  const result=JSON.parse(raw);
+  result.segments=tr.segments;
+  result.full_text=tr.full_text;
+  return result;
+}
+
+function repairJSON(str){
+  // Nếu JSON hợp lệ rồi thì trả về luôn
+  try{JSON.parse(str);return str;}catch{}
+  // Thử đóng các bracket/brace bị thiếu
+  let s=str.trimEnd();
+  // Xoá dấu phẩy cuối nếu có
+  s=s.replace(/,\s*$/, '');
+  // Đếm bracket chưa đóng
+  let opens=0, braces=0;
+  let inStr=false, escape=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(escape){escape=false;continue;}
+    if(c==='\\'&&inStr){escape=true;continue;}
+    if(c==='"'){inStr=!inStr;continue;}
+    if(inStr)continue;
+    if(c==='[')opens++;
+    else if(c===']')opens--;
+    else if(c==='{')braces++;
+    else if(c==='}')braces--;
+  }
+  // Đóng string nếu đang mở
+  if(inStr) s+='"';
+  // Đóng các mảng/object chưa đóng
+  while(opens>0){s+=']';opens--;}
+  while(braces>0){s+='}';braces--;}
+  return s;
+}
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+function render(data,fname){
+  $('loading-screen').style.display='none';
+  $('app-screen').style.display='block';
+  $('fname').textContent=fname;
+
+  // Audio setup
+  aud=$('aud');
+  aud.src=URL.createObjectURL(audioFile);
+  aud.onloadedmetadata=()=>{$('t-tot').textContent=fmt(aud.duration);$('fdur').textContent=fmt(aud.duration);};
+  aud.ontimeupdate=updateProg;
+  aud.onended=()=>{playing=false;$('btn-play').textContent='▶';};
+
+  // Scores
+  const s=data.scores;
+  $('sv-ov').textContent=s.overall;
+  $('sv-fl').textContent=s.fluency+'%';$('sv-pr').textContent=s.pronunciation+'%';
+  $('sv-lx').textContent=s.lexical+'%';$('sv-gr').textContent=s.grammar+'%';
+  setTimeout(()=>{
+    bar('sb-ov',(parseFloat(s.overall)/9)*100);
+    bar('sb-fl',s.fluency);bar('sb-pr',s.pronunciation);bar('sb-lx',s.lexical);bar('sb-gr',s.grammar);
+  },200);
+  if(data.notes){
+    $('sn-fl').textContent=data.notes.fluency||'';
+    $('sn-pr').textContent=data.notes.pronunciation||'';
+    $('sn-lx').textContent=data.notes.lexical||'';
+    $('sn-gr').textContent=data.notes.grammar||'';
+  }
+
+  // Transcript with click-to-seek words
+  renderTranscript(data.segments, data.inlineErrors||[]);
+
+  // Pron groups
+  renderPronGroups(data.pronunciationGroups||[], data.scores?.pronVsNative);
+
+  // Grammar
+  renderGrammarErrors(data.grammarErrors||[]);
+
+  // Lexical
+  renderLexErrors(data.lexicalErrors||[]);
+
+  // Fluency tab
+  renderFluencyTab(data);
+
+  // Student nav
+  if(currentStudentInfo) renderStudentNav();
+
+  // Add to history (local)
+  addToHistory(data, currentStudentInfo, fname);
+
+  // Save to Supabase (cloud) — chạy ngầm
+  if(typeof saveResultToSupabase==='function'){
+    saveResultToSupabase(data, currentStudentInfo, fname);
+  }
+
+  // Update graded count
+  if(currentStudentInfo){
+    gradedCount++;
+    updateProgressBanner();
+  }
+
+  // Reset to overview tab
+  switchRpTab('overview');
+  _lastActive=-1;
+}
+
+// ── TRANSCRIPT ──
+function renderTranscript(segments, inlineErrors){
+  const tc=$('ts-content');tc.innerHTML='';
+  segments.forEach(seg=>{
+    const div=document.createElement('div');div.className='ts-block';
+    const sec=seg.startSec!=null?seg.startSec:toSec(seg.timestamp);
+    div.dataset.sec=sec;
+    const hdr=document.createElement('div');hdr.className='ts-hdr';
+    hdr.innerHTML=`<button class="ts-pb" onclick="seek(${sec})">▶</button><span class="ts-tm">${fmtTsFull(seg.timestamp)}</span>`;
+    const txtDiv=document.createElement('div');txtDiv.className='ts-txt';
+    // Build clickable words with error highlighting
+    txtDiv.innerHTML=buildClickableText(seg.text, inlineErrors, sec);
+    // Attach tooltip events
+    txtDiv.querySelectorAll('.ep-wrong,.ep-warn').forEach(sp=>{
+      sp.addEventListener('mouseenter',showPronTT);sp.addEventListener('mouseleave',hideTT);
+    });
+    txtDiv.querySelectorAll('.eg').forEach(sp=>{
+      sp.addEventListener('mouseenter',showGramTT);sp.addEventListener('mouseleave',hideTT);
+    });
+    txtDiv.querySelectorAll('.el').forEach(sp=>{
+      sp.addEventListener('mouseenter',showLexTT);sp.addEventListener('mouseleave',hideTT);
+    });
+    div.appendChild(hdr);div.appendChild(txtDiv);tc.appendChild(div);
+  });
+}
+
+function buildClickableText(text, inlineErrors, segStartSec){
+  if(!text) return '';
+  // Gán ID duy nhất cho mỗi lỗi
+  const errors=inlineErrors.map((e,i)=>({...e,_id:'err_'+i}));
+  const phraseErrors=errors.filter(e=>(e.type==='gram'||e.type==='lex')&&(e.word||'').trim().includes(' '));
+  const wordErrors=errors.filter(e=>!phraseErrors.find(p=>p._id===e._id));
+
+  // Tìm vị trí cụm lỗi trong text
+  const spans=[];
+  phraseErrors.forEach(e=>{
+    if(!e.word)return;
+    const idx=text.toLowerCase().indexOf(e.word.toLowerCase().trim());
+    if(idx<0)return;
+    spans.push({start:idx,end:idx+e.word.trim().length,err:e});
+  });
+  spans.sort((a,b)=>a.start-b.start);
+
+  let out='',i=0;
+  while(i<text.length){
+    // Cụm lỗi bắt đầu ở đây
+    const span=spans.find(s=>s.start===i);
+    if(span){
+      const phrase=text.slice(span.start,span.end);
+      const e=span.err;
+      const cls=e.type==='gram'?'eg':'el';
+      const timing=findWordTiming(phrase.split(' ')[0],segStartSec);
+      const sec=timing?timing.startSec:segStartSec;
+      const evts=`onmouseenter="showErrTT(event,'${e.type}')" onmouseleave="hideTT()"`;
+      out+=`<span class="${cls} ts-word" data-w="${esc(e.word)}" data-issue="${esc(e.note||'')}" data-fix="${esc(e.fix||'')}" data-errorid="${e._id}" onclick="seek(${sec})" ${evts}>${esc(phrase)}</span>`;
+      i=span.end;continue;
+    }
+    if(spans.find(s=>i>s.start&&i<s.end)){i++;continue;}
+
+    const rest=text.slice(i);
+    const spM=rest.match(/^(\s+)/);
+    if(spM){out+=spM[1];i+=spM[1].length;continue;}
+    const wM=rest.match(/^([^\s]+)/);
+    if(!wM){i++;continue;}
+    const token=wM[1];
+    const tClean=token.replace(/[.,!?;:'"()\-]/g,'');
+    const timing=findWordTiming(token,segStartSec);
+    const sec=timing?timing.startSec:segStartSec;
+    const err=findErrorForWord(token,wordErrors);
+    if(err){
+      const eid=`data-errorid="${err._id}"`;
+      if(err.type==='pron'){
+        const cls=err.severity==='warn'?'ep-warn':'ep-wrong';
+        const inner=highlightSyllable(token,err.wrongPart||'',err.severity==='warn');
+        const scoreAttr=err.scoreVsNative!=null?`data-score="${err.scoreVsNative}"`:'';
+        out+=`<span class="${cls} ts-word" data-w="${esc(err.word||tClean)}" data-ipa="${esc(err.ipa||'')}" data-issue="${esc(err.note||'')}" data-fix="${esc(err.fix||'')}" ${scoreAttr} ${eid} onclick="seek(${sec})" onmouseenter="showPronTT(event)" onmouseleave="hideTT()">${inner}</span>`;
+      } else if(err.type==='gram'){
+        out+=`<span class="eg ts-word" data-w="${esc(err.word||tClean)}" data-issue="${esc(err.note||'')}" data-fix="${esc(err.fix||'')}" ${eid} onclick="seek(${sec})" onmouseenter="showErrTT(event,'gram')" onmouseleave="hideTT()">${esc(token)}</span>`;
+      } else {
+        out+=`<span class="el ts-word" data-w="${esc(err.word||tClean)}" data-issue="${esc(err.note||'')}" data-fix="${esc(err.fix||'')}" ${eid} onclick="seek(${sec})" onmouseenter="showErrTT(event,'lex')" onmouseleave="hideTT()">${esc(token)}</span>`;
+      }
+    } else {
+      out+=`<span class="ts-word" onclick="seek(${sec})">${esc(token)}</span>`;
+    }
+    i+=token.length;
+  }
+  return out;
+}
+
+function highlightSyllable(word, wrongPart, isWarn){
+  // Nếu không có wrongPart → tô cả từ
+  if(!wrongPart) return esc(word);
+  const badCls=isWarn?'syl-bad-warn':'syl-bad-wrong';
+  const idx=word.toLowerCase().indexOf(wrongPart.toLowerCase());
+  if(idx<0) return esc(word);
+  const before=word.slice(0,idx);
+  const bad=word.slice(idx,idx+wrongPart.length);
+  const after=word.slice(idx+wrongPart.length);
+  return (before?`<span class="syl-ok">${esc(before)}</span>`:'')
+    +`<span class="${badCls}">${esc(bad)}</span>`
+    +(after?`<span class="syl-ok">${esc(after)}</span>`:'');
+}
+
+function findErrorForWord(word, errors){
+  const clean=word.replace(/[.,!?;:'"()\-]/g,'').toLowerCase();
+  if(!clean) return null;
+  // Exact match first
+  let found=errors.find(e=>{
+    const ew=(e.word||'').replace(/[.,!?;:'"()\-]/g,'').toLowerCase().trim();
+    return ew===clean;
+  });
+  if(found) return found;
+  // Partial match — error word starts with this token (for multi-word errors handled as single)
+  found=errors.find(e=>{
+    const ew=(e.word||'').replace(/[.,!?;:'"()\-]/g,'').toLowerCase().trim();
+    const parts=ew.split(/\s+/);
+    return parts[0]===clean && parts.length===1;
+  });
+  return found||null;
+}
+
+function findWordTiming(word, fallbackSec){
+  const clean=word.replace(/[.,!?;:'"()]/g,'').toLowerCase();
+  return wordTimings.find(w=>w.word.replace(/[.,!?;:'"()]/g,'').toLowerCase()===clean);
+}
+
+// ── PRON GROUPS ──
+function renderPronGroups(groups, pronVsNative){
+  const c=$('pron-cards');c.innerHTML='';
+  // Show overall % vs native
+  if(pronVsNative!=null){
+    const col=pronVsNative>=70?'var(--green)':pronVsNative>=50?'var(--yellow)':'var(--red)';
+    c.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--text2)">% phát âm so với người bản ngữ</span>
+      <span style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${pronVsNative}%</span>
+    </div>`;
+  }
+  if(!groups.length){c.innerHTML+='<div style="font-size:13px;color:var(--text3)">Không phát hiện lỗi phát âm nổi bật.</div>';return;}
+  const catNames={
+    'Thiếu âm cuối':'Thiếu âm cuối',
+    'Sai trọng âm':'Sai trọng âm',
+    'Sai nguyên âm':'Sai nguyên âm',
+    'Sai phụ âm':'Sai phụ âm',
+    'Lỗi khác':'Lỗi phát âm khác'
+  };
+  groups.forEach(g=>{
+    const isWrong=g.severity==='wrong';
+    const badgeClass=isWrong?'badge-red':'badge-yellow';
+    const div=document.createElement('div');div.className='pron-group';
+    let wordsHtml=(g.words||[]).map(w=>{
+      const ipaHtml=buildIpaHtml(w.ipa||'',w.wrongPart||'',isWrong);
+      const score=w.scoreVsNative!=null?w.scoreVsNative:null;
+      const scoreCol=score==null?'':score>=70?'var(--green)':score>=50?'var(--yellow)':'var(--red)';
+      const scoreBadge=score!=null?`<span style="font-size:10px;font-weight:700;color:${scoreCol};font-family:'JetBrains Mono',monospace;margin-left:6px;">${score}%</span>`:'';
+      return `<div class="pron-word-row ${isWrong?'pron-word-wrong':'pron-word-warn'}" onclick="flashInTranscript('${esc(w.word)}')" title="Bấm để tìm trong script">
+        <span class="pron-word-main">${esc(w.word)}${scoreBadge}</span>
+        <div class="pron-ipa-wrap"><span class="pron-ipa">${ipaHtml}</span></div>
+      </div>${w.tip?`<div class="pron-tip">💡 ${esc(w.tip)}</div>`:''}`;
+    }).join('');
+    const el=document.createElement('div');el.className='pron-group';
+    el.innerHTML=`<div class="pron-group-hdr">
+      <span class="pron-group-name">${esc(catNames[g.category]||g.category)}</span>
+      <span class="pron-group-badge ${badgeClass}">${(g.words||[]).length} từ · ${isWrong?'Sai rõ':'Cảnh báo'}</span>
+    </div>
+    <div class="pron-group-body">${wordsHtml}</div>`;
+    c.appendChild(el);
+  });
+}
+
+function buildIpaHtml(ipa, wrongPart, isWrong){
+  if(!ipa)return '';
+  if(!wrongPart)return esc(ipa);
+  const cls=isWrong?'ph-wrong':'ph-warn';
+  return esc(ipa).replace(esc(wrongPart),`<span class="${cls}">${esc(wrongPart)}</span>`);
+}
+
+// ── GRAMMAR ERRORS ──
+function renderGrammarErrors(errors){
+  const c=$('gram-list');c.innerHTML='';
+  if(!errors.length){c.innerHTML='<div style="font-size:13px;color:var(--text3)">Không phát hiện lỗi ngữ pháp.</div>';return;}
+  errors.forEach(e=>appendGramItem(c,e));
+}
+function appendGramItem(c,e){
+  const d=document.createElement('div');d.className='gram-item';
+  d.title='Bấm để tìm trong script';
+  d.onclick=()=>flashInTranscript(e.orig||e.word||'');
+  d.innerHTML=`<div class="gram-dot"></div>
+    <div class="gram-body">
+      <div class="gram-orig">${esc(e.orig)}</div>
+      <div class="gram-fix">→ ${esc(e.fix)}</div>
+      ${e.reason?`<div class="gram-reason">${esc(e.reason)}</div>`:''}
+    </div>
+    <button class="gram-del" title="Xoá" onclick="event.stopPropagation();this.closest('.gram-item').remove()">✕</button>`;
+  c.appendChild(d);
+}
+
+// ── LEXICAL ERRORS ──
+function renderLexErrors(errors){
+  const c=$('lex-list');c.innerHTML='';
+  if(!errors.length){c.innerHTML='<div style="font-size:13px;color:var(--text3)">Không phát hiện lỗi từ vựng.</div>';return;}
+  errors.forEach(e=>{
+    const regMap={natural:'reg-natural',casual:'reg-casual',formal:'reg-formal'};
+    const regLabel={natural:'Tự nhiên',casual:'Thân mật',formal:'Trang trọng'};
+    const sugsHtml=(e.suggestions||[]).map(s=>`<div class="lex-sug">
+      <span class="lex-register ${regMap[s.register]||'reg-natural'}">${regLabel[s.register]||s.register}</span>
+      <span class="lex-sug-text">${esc(s.text)}</span>
+    </div>`).join('');
+    const d=document.createElement('div');d.className='lex-item';
+    d.title='Bấm để tìm trong script';
+    d.onclick=()=>flashInTranscript(e.orig||'');
+    d.innerHTML=`<div class="lex-orig">${esc(e.orig)}</div>
+      ${e.reason?`<div class="lex-reason">⚠️ ${esc(e.reason)}</div>`:''}
+      <div class="lex-suggestions">${sugsHtml}</div>`;
+    c.appendChild(d);
+  });
+}
+
+// ── TOOLTIPS ──
+function showPronTT(e){
+  const el=e.currentTarget;
+  const score=el.dataset.score;
+  const scoreText=score?` (${score}% so với bản ngữ)`:'';
+  $('tt-w').textContent=(el.dataset.w||'')+(el.dataset.ipa?' — '+el.dataset.ipa:'')+scoreText;
+  $('tt-ipa').innerHTML='';
+  $('tt-issue').textContent=el.dataset.issue||'';
+  $('tt-fix').textContent=el.dataset.fix?'→ Sửa: '+el.dataset.fix:'';
+  posTT(e);
+}
+function showErrTT(e,type){
+  const el=e.currentTarget;
+  $('tt-w').textContent=type==='gram'?'Lỗi ngữ pháp':'Từ vựng chưa tự nhiên';
+  $('tt-ipa').innerHTML='';
+  $('tt-issue').textContent=el.dataset.issue||'';
+  $('tt-fix').textContent=el.dataset.fix?'→ Gợi ý: '+el.dataset.fix:'';
+  posTT(e);
+}
+// Keep old names as aliases for backward compat
+function showGramTT(e){showErrTT(e,'gram');}
+function showLexTT(e){showErrTT(e,'lex');}
+function posTT(e){
+  const tt=$('tooltip');tt.className='tt show';
+  const r=e.currentTarget.getBoundingClientRect();
+  tt.style.left=Math.min(r.left,window.innerWidth-260)+'px';
+  requestAnimationFrame(()=>{tt.style.top=(r.top-tt.offsetHeight-6)+'px';});
+}
+function hideTT(){$('tooltip').className='tt';}
+
+// ── CROSS-LINK: click right panel → flash + scroll transcript ──
+function flashInTranscript(word){
+  if(!word)return;
+  const all=document.querySelectorAll('.ep-wrong,.ep-warn,.eg,.el');
+  let firstFound=null;
+  const target=word.toLowerCase().trim().replace(/[.,!?;:'"()\-]/g,'');
+  all.forEach(sp=>{
+    const w=(sp.dataset.w||'').toLowerCase().trim().replace(/[.,!?;:'"()\-]/g,'');
+    if(!w)return;
+    // Match: exact, or target contains w, or w contains target (for partial phrase match)
+    const match=w===target||target===w||
+      (target.length>3&&target.includes(w))||
+      (w.length>3&&w.includes(target))||
+      // First word match for phrases
+      target.split(' ')[0]===w.split(' ')[0];
+    if(match){
+      if(!firstFound)firstFound=sp;
+      sp.classList.add('flash');
+      setTimeout(()=>sp.classList.remove('flash'),2500);
+    }
+  });
+  if(firstFound){
+    // Scroll transcript area (left panel), not window
+    const area=document.querySelector('.transcript-area');
+    if(area){
+      const rect=firstFound.getBoundingClientRect();
+      const areaRect=area.getBoundingClientRect();
+      area.scrollTop+=rect.top-areaRect.top-area.clientHeight/2;
+    }
+    firstFound.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+
+// ── MANUAL ADD ──
+function toggleForm(t){$('form-'+t).classList.toggle('show');}
+function addErr(type){
+  const prefix=type==='gram'?'fg':'fl';
+  const orig=$(prefix+'-orig').value.trim(),fix=$(prefix+'-fix').value.trim(),reason=$(prefix+'-reason').value.trim();
+  if(!orig||!fix)return;
+  if(type==='gram') appendGramItem($('gram-list'),{orig,fix,reason});
+  else {
+    const d=document.createElement('div');d.className='lex-item';
+    d.innerHTML=`<div class="lex-orig">${esc(orig)}</div>${reason?`<div class="lex-reason">${esc(reason)}</div>`:''}
+    <div class="lex-suggestions"><div class="lex-sug"><span class="lex-register reg-natural">Tự nhiên</span><span class="lex-sug-text">${esc(fix)}</span></div></div>`;
+    $('lex-list').appendChild(d);
+  }
+  ['-orig','-fix','-reason'].forEach(s=>$(prefix+s).value='');
+  toggleForm(type);
+}
+
+// ── SCORES ──
+function bar(id,pct){$(id).style.width=Math.min(pct,100)+'%';}
+
+// ══════════════════════════════════════════
+//  AUDIO CONTROLS + KEYBOARD
+// ══════════════════════════════════════════
+$('btn-play').addEventListener('click',togglePlay);
+$('btn-rew').addEventListener('click',()=>{if(aud)aud.currentTime=Math.max(0,aud.currentTime-5);});
+$('btn-fwd').addEventListener('click',()=>{if(aud)aud.currentTime=Math.min(aud.duration||0,aud.currentTime+5);});
+$('spd-btn').addEventListener('click',()=>{spdIdx=(spdIdx+1)%spds.length;if(aud)aud.playbackRate=spds[spdIdx];$('spd-btn').textContent=spds[spdIdx]+'×';});
+$('prog-bar').addEventListener('click',e=>{if(!aud)return;const r=e.currentTarget.getBoundingClientRect();aud.currentTime=((e.clientX-r.left)/r.width)*(aud.duration||0);});
+
+document.addEventListener('keydown',e=>{
+  // Only trigger when not in input
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
+  if(e.code==='Space'){e.preventDefault();togglePlay();}
+  else if(e.code==='ArrowLeft'){e.preventDefault();if(aud)aud.currentTime=Math.max(0,aud.currentTime-5);}
+  else if(e.code==='ArrowRight'){e.preventDefault();if(aud)aud.currentTime=Math.min(aud.duration||0,aud.currentTime+5);}
+});
+
+function togglePlay(){
+  if(!aud)return;
+  if(playing){aud.pause();playing=false;$('btn-play').textContent='▶';}
+  else{aud.play();playing=true;$('btn-play').textContent='⏸';}
+}
+function seek(s){
+  if(!aud)return;
+  aud.currentTime=Math.max(0,s-0.1);
+  if(!playing){aud.play();playing=true;$('btn-play').textContent='⏸';}
+}
+
+function updateProg(){
+  if(!aud||!aud.duration)return;
+  $('prog-fill').style.width=(aud.currentTime/aud.duration*100)+'%';
+  $('t-cur').textContent=fmt(aud.currentTime);
+  // Sync active segment
+  const blocks=document.querySelectorAll('.ts-block');
+  if(!blocks.length)return;
+  let ai=0;
+  blocks.forEach((b,i)=>{if(parseFloat(b.dataset.sec)<=aud.currentTime)ai=i;});
+  if(ai!==_lastActive){
+    _lastActive=ai;
+    blocks.forEach(b=>b.classList.remove('active'));
+    blocks[ai].classList.add('active');
+    const area=blocks[ai].closest('.transcript-area');
+    if(area){
+      const bt=blocks[ai].offsetTop;
+      if(bt>area.scrollTop+area.clientHeight-120) area.scrollTo({top:bt-80,behavior:'smooth'});
+    }
+  }
+}
+
+// ══════════════════════════════════════════
+//  STUDENT NAV
+// ══════════════════════════════════════════
+function renderStudentNav(){
+  const si=currentStudentInfo;
+  if(!si)return;
+  $('student-nav').classList.add('show');
+  $('snav-name').textContent=si.name;
+  $('snav-meta').textContent=(si.course||'')+(si.assignment?' · '+si.assignment:'');
+  // File buttons
+  const fc=$('snav-files');fc.innerHTML='';
+  (si.files||[]).forEach((f,i)=>{
+    const btn=document.createElement('button');btn.className='snav-file-btn'+(i===si.activeFileIdx?' active':'');
+    btn.textContent='File '+(i+1)+': '+(f.title||f.name||'audio').substring(0,20);
+    btn.onclick=()=>switchStudentFile(i);
+    fc.appendChild(btn);
+  });
+}
+
+async function switchStudentFile(idx){
+  if(!currentStudentInfo)return;
+  // Save current file result trước khi switch
+  saveCurrentResult();
+  currentStudentInfo.activeFileIdx=idx;
+  renderStudentNav();
+  // Kiểm tra cache
+  const key=currentStudentInfo.name+'_file'+idx;
+  const cached=sessionResults.find(r=>r.key===key);
+  if(cached){
+    // Restore từ cache — không cần phân tích lại
+    currentData=cached.data;
+    currentStudentInfo={...cached.studentInfo,activeFileIdx:idx,files:currentStudentInfo.files};
+    audioFile=cached.audioFile;
+    // Restore audio element
+    aud=$('aud');
+    if(cached.audioBlobUrl){
+      aud.src=cached.audioBlobUrl;
+    } else if(cached.audioFile){
+      aud.src=URL.createObjectURL(cached.audioFile);
+    }
+    // Restore UI trực tiếp không qua render() đầy đủ
+    $('loading-screen').style.display='none';
+    $('app-screen').style.display='block';
+    $('fname').textContent=cached.fileName;
+    playing=false;$('btn-play').textContent='▶';
+    aud.onloadedmetadata=()=>{$('t-tot').textContent=fmt(aud.duration);$('fdur').textContent=fmt(aud.duration);};
+    aud.ontimeupdate=updateProg;
+    aud.onended=()=>{playing=false;$('btn-play').textContent='▶';};
+    // Restore scores & content
+    renderScoresOnly(cached.data);
+    renderTranscript(cached.data.segments||[],cached.data.inlineErrors||[]);
+    renderPronGroups(cached.data.pronunciationGroups||[], cached.data.scores?.pronVsNative);
+    renderGrammarErrors(cached.data.grammarErrors||[]);
+    renderLexErrors(cached.data.lexicalErrors||[]);
+    renderStudentNav();
+    _lastActive=-1;
+    return;
+  }
+  // Chưa có cache → tải từ Drive và phân tích mới
+  const fileEntry=currentStudentInfo.files[idx];
+  const driveFile=fileEntry.driveFile||fileEntry;
+  await loadDriveAudio(driveFile,currentStudentInfo.name,true);
+}
+
+function saveCurrentResult(){
+  if(!currentStudentInfo||!currentData)return;
+  const idx=currentStudentInfo.activeFileIdx||0;
+  const key=currentStudentInfo.name+'_file'+idx;
+  const existing=sessionResults.findIndex(r=>r.key===key);
+  const audioBlobUrl=aud?.src||null;
+  const entry={
+    key,data:currentData,audioFile,audioBlobUrl,
+    fileName:$('fname').textContent,
+    driveFileId:currentStudentInfo._currentDriveFileId||null,
+    driveFileName:currentStudentInfo._currentDriveFileName||null,
+    studentInfo:{...currentStudentInfo}
+  };
+  if(existing>=0)sessionResults[existing]=entry;
+  else sessionResults.push(entry);
+}
+
+// ══════════════════════════════════════════
+//  EXPORT / IMPORT / COPY
+// ══════════════════════════════════════════
+async function exportResult(withAudio=false){
+  if(!currentData){showErr('Chưa có kết quả để xuất');return;}
+  saveCurrentResult();
+  const si=currentStudentInfo;
+  const fname=[si?.course,si?.assignment,si?.name].filter(Boolean).join('_').replace(/\s+/g,'_')||'ielts_result';
+  const allResults=sessionResults.filter(r=>r.studentInfo?.name===si?.name);
+
+  const btnId=withAudio?'btn-export-audio':'btn-export-json';
+  const btn=$(btnId);
+  if(btn){btn.textContent=withAudio?'⏳ Nén...':'⏳ Xuất...';btn.disabled=true;}
+
+  try{
+    const files=await Promise.all(allResults.map(async(r,i)=>{
+      let audioBase64=null,audioType='audio/wav';
+      // Lưu Drive file ID để restore sau
+      const driveFileId=r.driveFileId||null;
+      const driveFileName=r.driveFileName||r.fileName||null;
+
+      if(withAudio&&r.audioFile){
+        try{audioBase64=await fileToBase64Full(r.audioFile);}catch{}
+      }
+      return{
+        fileIndex:i+1,
+        fileName:r.fileName,
+        driveFileId,   // lưu ID để tự fetch lại từ Drive
+        driveFileName,
+        result:r.data,
+        audio:audioBase64?{base64:audioBase64,type:audioType}:null
+      };
+    }));
+
+    const exportData={
+      exportedAt:new Date().toISOString(),
+      studentInfo:si,
+      hasAudio:withAudio,
+      totalFiles:files.length,
+      files
+    };
+    const blob=new Blob([JSON.stringify(exportData,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=fname+'.json';a.click();
+  }finally{
+    if(btn){btn.textContent=withAudio?'🔊 JSON+Audio':'💾 JSON';btn.disabled=false;}
+  }
+}
+
+async function fileToBase64Full(file){
+  try{
+    // Nén audio xuống 32kbps mono bằng AudioContext + MediaRecorder
+    const compressed=await compressAudio(file);
+    return new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result);
+      r.onerror=()=>rej(new Error('Lỗi đọc file'));
+      r.readAsDataURL(compressed);
+    });
+  }catch{
+    // Fallback: encode thẳng không nén
+    return new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result);
+      r.onerror=()=>rej(new Error('Lỗi đọc file'));
+      r.readAsDataURL(file);
+    });
+  }
+}
+
+async function compressAudio(file){
+  return new Promise(async(resolve,reject)=>{
+    try{
+      const arrayBuf=await file.arrayBuffer();
+      const audioCtx=new AudioContext({sampleRate:16000}); // 16kHz mono — đủ nghe giọng nói
+      const decoded=await audioCtx.decodeAudioData(arrayBuf);
+
+      // Lấy channel đầu tiên (mono)
+      const monoData=decoded.getChannelData(0);
+      const offCtx=new OfflineAudioContext(1,monoData.length,16000);
+      const src=offCtx.createBufferSource();
+      const buf=offCtx.createBuffer(1,monoData.length,16000);
+      buf.getChannelData(0).set(monoData);
+      src.buffer=buf;
+      src.connect(offCtx.destination);
+      src.start();
+      const rendered=await offCtx.startRendering();
+
+      // Encode sang WAV (MediaRecorder không dùng được ở đây)
+      const wavBlob=audioBufferToWav(rendered);
+      audioCtx.close();
+      resolve(wavBlob);
+    }catch(e){reject(e);}
+  });
+}
+
+function audioBufferToWav(buffer){
+  const numCh=buffer.numberOfChannels;
+  const sampleRate=buffer.sampleRate;
+  const samples=buffer.getChannelData(0);
+  const pcm=new Int16Array(samples.length);
+  for(let i=0;i<samples.length;i++){
+    const s=Math.max(-1,Math.min(1,samples[i]));
+    pcm[i]=s<0?s*0x8000:s*0x7FFF;
+  }
+  const wavBuf=new ArrayBuffer(44+pcm.byteLength);
+  const view=new DataView(wavBuf);
+  const write=(off,str)=>{for(let i=0;i<str.length;i++)view.setUint8(off+i,str.charCodeAt(i));};
+  write(0,'RIFF');view.setUint32(4,36+pcm.byteLength,true);
+  write(8,'WAVE');write(12,'fmt ');
+  view.setUint32(16,16,true);view.setUint16(20,1,true);
+  view.setUint16(22,numCh,true);view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*numCh*2,true);
+  view.setUint16(32,numCh*2,true);view.setUint16(34,16,true);
+  write(36,'data');view.setUint32(40,pcm.byteLength,true);
+  new Int16Array(wavBuf,44).set(pcm);
+  return new Blob([wavBuf],{type:'audio/wav'});
+}
+
+function triggerImport(){$('import-input').click();}
+function importResult(e){
+  const f=e.target.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.files&&d.files.length>0){
+        currentStudentInfo=d.studentInfo||null;
+        const first=d.files[0];
+        currentData=first.result;
+        // Restore audio từ base64 nếu có
+        if(first.audio?.base64){
+          const audioBlob=base64ToBlob(first.audio.base64,first.audio.type);
+          audioFile=new File([audioBlob],first.fileName||'audio',{type:first.audio.type});
+        } else {
+          audioFile=null;
+        }
+        // Lưu tất cả files vào sessionResults
+        d.files.forEach((file,i)=>{
+          if(!currentStudentInfo)return;
+          const key=(currentStudentInfo.name||'unknown')+'_file'+i;
+          let af=null;
+          if(file.audio?.base64){
+            const blob=base64ToBlob(file.audio.base64,file.audio.type);
+            af=new File([blob],file.fileName||'audio',{type:file.audio.type});
+          }
+          const blobUrl=af?URL.createObjectURL(af):null;
+          sessionResults.push({
+            key,data:file.result,audioFile:af,audioBlobUrl:blobUrl,
+            fileName:file.fileName||'File '+(i+1),
+            driveFileId:file.driveFileId||null,
+            driveFileName:file.driveFileName||null,
+            studentInfo:{...currentStudentInfo,activeFileIdx:i}
+          });
+        });
+        // driveFileId của file đầu tiên để auto-fetch
+        showImportedResult(first.result, first.fileName||f.name, first.driveFileId||null);
+      } else if(d.result){
+        currentData=d.result;
+        currentStudentInfo=d.studentInfo||null;
+        audioFile=null;
+        showImportedResult(d.result, f.name.replace('.json',''), null);
+      } else {
+        showErr('File JSON không đúng định dạng');
+      }
+    }catch(err){showErr('File JSON không hợp lệ: '+err.message);}
+    e.target.value='';
+  };
+  reader.readAsText(f);
+}
+
+function base64ToBlob(dataUrl, type){
+  const base64=dataUrl.includes(',')?dataUrl.split(',')[1]:dataUrl;
+  const binary=atob(base64);
+  const arr=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)arr[i]=binary.charCodeAt(i);
+  return new Blob([arr],{type:type||'audio/mp4'});
+}
+
+async function showImportedResult(data, fileName, driveFileId){
+  $('loading-screen').style.display='none';
+  $('upload-screen').style.display='none';
+  $('app-screen').style.display='block';
+  $('fname').textContent=fileName;
+  aud=$('aud');aud.src='';
+  $('fdur').textContent='--:--';
+
+  // Tự động tìm audio từ Drive nếu đang kết nối và có driveFileId
+  if(driveFileId&&gToken){
+    try{
+      $('fdur').textContent='⏳ Tải audio...';
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,{
+        headers:{Authorization:'Bearer '+gToken}
+      });
+      if(r.ok){
+        const blob=await r.blob();
+        audioFile=new File([blob],fileName,{type:blob.type||'audio/mp4'});
+        aud.src=URL.createObjectURL(audioFile);
+        aud.onloadedmetadata=()=>{$('t-tot').textContent=fmt(aud.duration);$('fdur').textContent=fmt(aud.duration);};
+        aud.ontimeupdate=updateProg;
+        aud.onended=()=>{playing=false;$('btn-play').textContent='▶';};
+      }
+    }catch{
+      $('fdur').textContent='--:--';
+    }
+  } else if(audioFile){
+    // Restore từ File object trong memory
+    aud.src=URL.createObjectURL(audioFile);
+    aud.onloadedmetadata=()=>{$('t-tot').textContent=fmt(aud.duration);$('fdur').textContent=fmt(aud.duration);};
+    aud.ontimeupdate=updateProg;
+    aud.onended=()=>{playing=false;$('btn-play').textContent='▶';};
+  }
+
+  renderScoresOnly(data);
+  renderTranscript(data.segments||[],data.inlineErrors||[]);
+  renderPronGroups(data.pronunciationGroups||[], data.scores?.pronVsNative);
+  renderGrammarErrors(data.grammarErrors||[]);
+  renderLexErrors(data.lexicalErrors||[]);
+  if(currentStudentInfo)renderStudentNav();
+  _lastActive=-1;
+}
+
+function renderScoresOnly(data){
+  const s=data.scores||{};
+  $('sv-ov').textContent=s.overall||'--';
+  $('sv-fl').textContent=(s.fluency||'--')+'%';$('sv-pr').textContent=(s.pronunciation||'--')+'%';
+  $('sv-lx').textContent=(s.lexical||'--')+'%';$('sv-gr').textContent=(s.grammar||'--')+'%';
+  setTimeout(()=>{
+    bar('sb-ov',(parseFloat(s.overall||0)/9)*100);
+    bar('sb-fl',s.fluency||0);bar('sb-pr',s.pronunciation||0);bar('sb-lx',s.lexical||0);bar('sb-gr',s.grammar||0);
+  },200);
+  if(data.notes){$('sn-fl').textContent=data.notes.fluency||'';$('sn-pr').textContent=data.notes.pronunciation||'';$('sn-lx').textContent=data.notes.lexical||'';$('sn-gr').textContent=data.notes.grammar||'';}
+}
+
+function copyResultText(){
+  if(!currentData)return;
+  const s=currentData.scores||{};
+  const si=currentStudentInfo;
+  let text=`📊 KẾT QUẢ IELTS SPEAKING\n`;
+  if(si)text+=`👤 ${si.name} | ${si.assignment||''} | ${si.course||''}\n`;
+  text+=`\n🎯 Overall: ${s.overall} | Fluency: ${s.fluency}% | Pronunciation: ${s.pronunciation}% | Lexical: ${s.lexical}% | Grammar: ${s.grammar}%\n`;
+  if(currentData.notes){
+    text+=`\n📝 Nhận xét:\n`;
+    text+=`• Fluency: ${currentData.notes.fluency||''}\n`;
+    text+=`• Phát âm: ${currentData.notes.pronunciation||''}\n`;
+    text+=`• Từ vựng: ${currentData.notes.lexical||''}\n`;
+    text+=`• Ngữ pháp: ${currentData.notes.grammar||''}\n`;
+  }
+  if(currentData.grammarErrors?.length){
+    text+=`\n🟡 Lỗi ngữ pháp:\n`;
+    currentData.grammarErrors.forEach(e=>text+=`• "${e.orig}" → "${e.fix}" (${e.reason})\n`);
+  }
+  if(currentData.lexicalErrors?.length){
+    text+=`\n🟠 Lỗi từ vựng:\n`;
+    currentData.lexicalErrors.forEach(e=>text+=`• "${e.orig}" — ${e.reason}\n  → ${(e.suggestions||[]).map(s=>s.text+'('+s.register+')').join(', ')}\n`);
+  }
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.querySelector('.snav-btn.copy-result');
+    if(btn){btn.textContent='✅ Đã copy!';setTimeout(()=>btn.textContent='📋 Copy',2000);}
+  });
+}
+
+// ══════════════════════════════════════════
+//  PROGRESS BANNER
+// ══════════════════════════════════════════
+function updateProgressBanner(){
+  if(!totalStudents)return;
+  const pct=Math.round((gradedCount/totalStudents)*100);
+  $('cp-prog-text').textContent=`${gradedCount}/${totalStudents} học sinh đã chấm`;
+  $('cp-prog-fill').style.width=pct+'%';
+  $('cp-progress').classList.add('show');
+}
+
+// ══════════════════════════════════════════
+//  RESET
+// ══════════════════════════════════════════
+function resetApp(){
+  saveCurrentResult();
+  $('app-screen').style.display='none';
+  resetToUpload();
+  $('ts-content').innerHTML='';$('pron-cards').innerHTML='';$('gram-list').innerHTML='';$('lex-list').innerHTML='';
+  $('student-nav').classList.remove('show');
+  _lastActive=-1;
+}
+function resetToUpload(){
+  $('loading-screen').style.display='none';$('upload-screen').style.display='flex';
+  if(aud){aud.pause();aud.src='';}playing=false;audioFile=null;fi.value='';
+  ['s1','s2','s3','s4','s5'].forEach(id=>$(id).className='loader-step');
+}
+
+// ══════════════════════════════════════════
+//  GOOGLE CLASSROOM
+// ══════════════════════════════════════════
+let gToken=null,gUser=null,selectedCourse=null,selectedAssignment=null;
+const courseColors=['#7c6af7','#5eead4','#f472b6','#fb923c','#4ade80','#fbbf24'];
+
+function saveClientId(){localStorage.setItem('gClientId',$('google-client-id').value.trim());}
+function getClientId(){return $('google-client-id').value.trim()||localStorage.getItem('gClientId')||'';}
+
+function startGoogleLogin(){
+  const cid=getClientId();
+  if(!cid){showErr('Nhập Google OAuth Client ID trước');toggleClassroomPanel();return;}
+  const client=google.accounts.oauth2.initTokenClient({
+    client_id:cid,
+    scope:'https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.rosters.readonly https://www.googleapis.com/auth/classroom.student-submissions.students.readonly https://www.googleapis.com/auth/drive.readonly email profile',
+    callback:async resp=>{
+      if(resp.error){showErr('Đăng nhập Google thất bại: '+resp.error);return;}
+      gToken=resp.access_token;
+      await fetchUserInfo();
+      toggleClassroomPanel();loadCourses();
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function fetchUserInfo(){
+  const r=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+gToken}});
+  gUser=await r.json();
+  $('goog-avatar').src=gUser.picture;$('goog-avatar').style.display='block';$('goog-login-btn').style.display='none';
+}
+
+function toggleClassroomPanel(){
+  $('classroom-panel').classList.toggle('open');
+  if($('classroom-panel').classList.contains('open')&&gToken)loadCourses();
+}
+
+function showTab(tab){
+  ['courses','assignments','students'].forEach(t=>{$('tab-'+t).className='cp-tab'+(t===tab?' active':'');});
+  if(tab==='courses')loadCourses();
+  else if(tab==='assignments'&&selectedCourse)loadAssignments(selectedCourse.id);
+  else if(tab==='students'&&selectedAssignment)loadStudents(selectedAssignment.id);
+}
+
+async function loadCourses(){
+  if(!gToken)return;
+  $('cp-body').innerHTML='<div class="cp-loading"><div class="cp-spin"></div>Đang tải lớp học...</div>';
+  try{
+    const r=await fetch('https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE&pageSize=30',{headers:{Authorization:'Bearer '+gToken}});
+    const d=await r.json();
+    const courses=d.courses||[];
+    if(!courses.length){$('cp-body').innerHTML='<div class="cp-empty">Không tìm thấy lớp học.</div>';return;}
+    let html='<div class="cp-section-label">Lớp học của bạn</div>';
+    courses.forEach((c,i)=>{
+      const col=courseColors[i%courseColors.length];
+      html+=`<div class="course-item${selectedCourse?.id===c.id?' selected':''}" onclick="selectCourse('${c.id}','${esc(c.name)}','${col}')">
+        <div class="course-dot" style="background:${col}"></div>
+        <span class="course-name">${esc(c.name)}</span><span style="color:var(--text3);font-size:12px">›</span>
+      </div>`;
+    });
+    $('cp-body').innerHTML=html;
+  }catch(e){$('cp-body').innerHTML=`<div class="cp-empty">Lỗi: ${esc(e.message)}</div>`;}
+}
+
+function selectCourse(id,name,color){selectedCourse={id,name,color};selectedAssignment=null;showTab('assignments');}
+
+async function loadAssignments(courseId){
+  $('cp-body').innerHTML='<div class="cp-loading"><div class="cp-spin"></div>Đang tải bài tập...</div>';
+  try{
+    const r=await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/courseWork?pageSize=30&orderBy=updateTime%20desc`,{headers:{Authorization:'Bearer '+gToken}});
+    const d=await r.json();
+    let works=d.courseWork||[];
+    if(!works.length){$('cp-body').innerHTML='<div class="cp-empty">Không có bài tập.</div>';return;}
+    // Sort: Speaking first
+    works.sort((a,b)=>{
+      const aS=a.title.toLowerCase().includes('speaking')?0:1;
+      const bS=b.title.toLowerCase().includes('speaking')?0:1;
+      return aS-bS;
+    });
+    let html=`<div class="cp-section-label" style="display:flex;align-items:center;gap:7px;">
+      <span style="width:8px;height:8px;border-radius:50%;background:${selectedCourse?.color||'var(--accent)'};display:inline-block"></span>
+      ${esc(selectedCourse?.name||'')}
+    </div>`;
+    works.forEach(w=>{
+      const isSpeaking=w.title.toLowerCase().includes('speaking');
+      const date=w.updateTime?new Date(w.updateTime).toLocaleDateString('vi-VN'):'';
+      html+=`<div class="assignment-item${isSpeaking?' speaking':''}" onclick="selectAssignment('${w.id}','${esc(w.title)}')">
+        <div class="assignment-title">${esc(w.title)}${isSpeaking?'<span class="speaking-badge">🎙 Speaking</span>':''}</div>
+        <div class="assignment-meta">📅 ${date}</div>
+      </div>`;
+    });
+    $('cp-body').innerHTML=html;
+  }catch(e){$('cp-body').innerHTML=`<div class="cp-empty">Lỗi: ${esc(e.message)}</div>`;}
+}
+
+function selectAssignment(id,title){selectedAssignment={id,title};showTab('students');}
+
+async function loadStudents(assignmentId){
+  $('cp-body').innerHTML='<div class="cp-loading"><div class="cp-spin"></div>Đang tải bài nộp...</div>';
+  try{
+    const r=await fetch(`https://classroom.googleapis.com/v1/courses/${selectedCourse.id}/courseWork/${assignmentId}/studentSubmissions?pageSize=50`,{headers:{Authorization:'Bearer '+gToken}});
+    const d=await r.json();
+    const subs=d.studentSubmissions||[];
+    if(!subs.length){$('cp-body').innerHTML='<div class="cp-empty">Chưa có bài nộp.</div>';return;}
+
+    const profileMap=await fetchProfiles(subs.map(s=>s.userId));
+    totalStudents=subs.filter(s=>s.state==='TURNED_IN'||s.state==='RETURNED').length;
+    updateProgressBanner();
+
+    const stateOrder={TURNED_IN:0,RETURNED:1,CREATED:2,NEW:3};
+    subs.sort((a,b)=>(stateOrder[a.state]||9)-(stateOrder[b.state]||9));
+
+    let html=`<div class="cp-section-label">📝 ${esc(selectedAssignment?.title||'')} — ${subs.length} học sinh</div>`;
+    subs.forEach(sub=>{
+      const p=profileMap[sub.userId]||{};
+      const name=p.name?.fullName||p.name?.givenName||'Học sinh';
+      const initials=name.split(' ').slice(-2).map(n=>n[0]||'?').join('').toUpperCase();
+      const attachments=sub.assignmentSubmission?.attachments||[];
+      const audioFiles=attachments.filter(a=>a.driveFile);
+      const state=sub.state;
+      let stLabel='',stClass='';
+      if(state==='TURNED_IN'){stLabel='Đã nộp';stClass='st-turned';}
+      else if(state==='RETURNED'){stLabel='Đã trả';stClass='st-graded';}
+      else{stLabel='Chưa nộp';stClass='st-missing';}
+      const canGrade=audioFiles.length>0&&(state==='TURNED_IN'||state==='RETURNED');
+      const fileCount=audioFiles.length>1?` (${audioFiles.length} file)`:'';
+      html+=`<div class="student-item">
+        <div class="student-avatar">${initials}</div>
+        <span class="student-name">${esc(name)}</span>
+        <span class="student-status ${stClass}">${stLabel}${fileCount}</span>
+        ${canGrade?`<button class="grade-btn" onclick='gradeStudent(${JSON.stringify(sub.id)},${JSON.stringify(sub.userId)},${JSON.stringify(name)},${JSON.stringify(audioFiles)})'>▶ Chấm</button>`:''}
+      </div>`;
+    });
+    $('cp-body').innerHTML=html;
+    window._submissions=subs;window._profileMap=profileMap;
+  }catch(e){$('cp-body').innerHTML=`<div class="cp-empty">Lỗi: ${esc(e.message)}</div>`;}
+}
+
+async function fetchProfiles(userIds){
+  const map={};
+  // Strategy 1: Get student roster from course (has full names)
+  if(selectedCourse?.id){
+    try{
+      const r=await fetch(`https://classroom.googleapis.com/v1/courses/${selectedCourse.id}/students?pageSize=100`,{headers:{Authorization:'Bearer '+gToken}});
+      const d=await r.json();
+      (d.students||[]).forEach(s=>{
+        if(s.userId&&s.profile){map[s.userId]=s.profile;}
+      });
+    }catch{}
+  }
+  // Strategy 2: For any still missing, try userProfiles
+  await Promise.all(userIds.filter(uid=>!map[uid]).map(async uid=>{
+    try{
+      const r=await fetch(`https://classroom.googleapis.com/v1/userProfiles/${uid}`,{headers:{Authorization:'Bearer '+gToken}});
+      const d=await r.json();
+      if(d.name) map[uid]=d;
+    }catch{}
+  }));
+  // Strategy 3: Try teachers endpoint too
+  if(selectedCourse?.id){
+    try{
+      const r=await fetch(`https://classroom.googleapis.com/v1/courses/${selectedCourse.id}/teachers?pageSize=20`,{headers:{Authorization:'Bearer '+gToken}});
+      const d=await r.json();
+      (d.teachers||[]).forEach(t=>{if(t.userId&&t.profile&&!map[t.userId])map[t.userId]=t.profile;});
+    }catch{}
+  }
+  return map;
+}
+
+function gradeStudent(submissionId,userId,studentName,audioFiles){
+  saveCurrentResult(); // save previous if any
+  currentStudentInfo={
+    name:studentName,
+    course:selectedCourse?.name||'',
+    assignment:selectedAssignment?.title||'',
+    files:audioFiles,
+    activeFileIdx:0
+  };
+  if(audioFiles.length===1){
+    loadDriveAudio(audioFiles[0].driveFile,studentName,false);
+  } else {
+    showFilePicker(audioFiles,studentName,0);
+  }
+}
+
+function showFilePicker(audioFiles,studentName,preselect){
+  const overlay=document.createElement('div');
+  overlay.id='file-picker';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;';
+  const btns=audioFiles.map((a,i)=>`
+    <div onclick="pickAndClose(${i})" style="padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;cursor:pointer;margin-bottom:7px;font-size:13px;transition:border-color .2s;"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      🎵 ${esc(a.driveFile?.title||'File '+(i+1))}
+    </div>`).join('');
+  overlay.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:420px;width:100%;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px;">Chọn file — ${esc(studentName)}</div>
+    ${btns}
+    <button onclick="document.getElementById('file-picker').remove()" style="width:100%;padding:9px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;margin-top:4px;">Huỷ</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  window._pickerFiles=audioFiles;
+  window._pickerStudent=studentName;
+}
+
+function pickAndClose(idx){
+  document.getElementById('file-picker')?.remove();
+  currentStudentInfo.activeFileIdx=idx;
+  loadDriveAudio(window._pickerFiles[idx].driveFile,window._pickerStudent,false);
+}
+
+async function loadDriveAudio(driveFile,studentName,isSwitching){
+  // Extract fileId from multiple possible locations in Drive object
+  const fileId=driveFile.id
+    ||driveFile.driveFileId
+    ||(driveFile.alternateLink||'').match(/[-\w]{25,}/)?.[0]
+    ||(driveFile.url||'').match(/\/d\/([-\w]+)/)?.[1]
+    ||(driveFile.url||'').match(/id=([-\w]+)/)?.[1];
+  const fileName=driveFile.title||driveFile.name||'audio.m4a';
+  if(!fileId){
+    showErr('Không tìm được ID file Drive — thử tải file thủ công');
+    resetToUpload();return;
+  }
+  // Lưu driveFileId vào currentStudentInfo để export JSON có thể tự fetch lại
+  if(currentStudentInfo){
+    currentStudentInfo._currentDriveFileId=fileId;
+    currentStudentInfo._currentDriveFileName=fileName;
+  }
+
+  $('classroom-panel').classList.remove('open');
+  $('upload-screen').style.display='none';$('app-screen').style.display='none';
+  $('loading-screen').style.display='flex';
+  ['s1','s2','s3','s4','s5'].forEach(id=>$(id).className='loader-step');
+  msg(`Đang tải file của ${studentName}...`);step(1,'active');
+
+  try{
+    msg(`Đang tải file của ${studentName}...`);
+
+    // Thử lấy metadata trước để biết loại file và link tải
+    let blob=null;
+    let finalFileName=fileName;
+
+    // Cách 1: Direct download với alt=media
+    let r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true`,{
+      headers:{Authorization:'Bearer '+gToken}
+    });
+
+    // Nếu 403 hoặc redirect → thử lấy metadata rồi dùng webContentLink
+    if(!r.ok){
+      msg('Đang thử cách khác...');
+      // Lấy metadata để có webContentLink
+      const meta=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,size,webContentLink,exportLinks,shortcutDetails`,{
+        headers:{Authorization:'Bearer '+gToken}
+      });
+      if(meta.ok){
+        const m=await meta.json();
+        if(m.name) finalFileName=m.name;
+        // File là shortcut → lấy target ID
+        if(m.shortcutDetails?.targetId){
+          const targetId=m.shortcutDetails.targetId;
+          r=await fetch(`https://www.googleapis.com/drive/v3/files/${targetId}?alt=media&acknowledgeAbuse=true`,{
+            headers:{Authorization:'Bearer '+gToken}
+          });
+        }
+        // Thử webContentLink
+        if(!r.ok&&m.webContentLink){
+          r=await fetch(m.webContentLink,{headers:{Authorization:'Bearer '+gToken}});
+        }
+      }
+    }
+
+    if(!r.ok){
+      const errText=await r.text().catch(()=>'');
+      throw new Error(`Không tải được file (${r.status}). File có thể chưa được chia sẻ với tài khoản của bạn. Chi tiết: ${errText.slice(0,100)}`);
+    }
+
+    blob=await r.blob();
+    if(blob.size===0) throw new Error('File tải về bị trống — kiểm tra quyền truy cập Drive');
+
+    // Force đúng MIME type từ tên file (Drive thường trả về type sai)
+    const extToMime={
+      'm4a':'audio/mp4','mp3':'audio/mpeg','wav':'audio/wav',
+      'flac':'audio/flac','webm':'audio/webm','ogg':'audio/ogg',
+      'mp4':'audio/mp4','oga':'audio/ogg','mpeg':'audio/mpeg','mpga':'audio/mpeg'
+    };
+    const nameToUse=finalFileName||fileName;
+    const detectedExt=(nameToUse.split('.').pop()||'').toLowerCase();
+    const forcedMime=extToMime[detectedExt]||blob.type||'audio/mp4';
+
+    // Đảm bảo có extension hợp lệ
+    let safeFileName=nameToUse;
+    if(!safeFileName.match(/\.(m4a|mp3|mp4|wav|flac|webm|ogg|oga|mpeg|mpga)$/i)){
+      const mimeToExt={'audio/mp4':'.m4a','audio/x-m4a':'.m4a','audio/mpeg':'.mp3',
+        'audio/wav':'.wav','audio/flac':'.flac','audio/webm':'.webm','audio/ogg':'.ogg','video/mp4':'.mp4'};
+      safeFileName+=(mimeToExt[forcedMime]||'.m4a');
+    }
+    // Tạo blob mới với MIME đúng
+    const fixedBlob=new Blob([blob],{type:forcedMime});
+    const file=new File([fixedBlob],safeFileName,{type:forcedMime});
+    audioFile=file;
+    const cl=$('api-key').value.trim(),oai=$('oai-key').value.trim();
+    if(!cl||!oai){showErr('Nhập API key trước');resetToUpload();return;}
+    await runAnalysis(file,cl,null,oai);
+  }catch(e){showErr(e.message);resetToUpload();}
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function step(n,state){$('s'+n).className='loader-step '+state;}
+function msg(t){$('lmsg').textContent=t;}
+function showErr(m){const el=$('error-banner');el.textContent='❌ '+m;el.style.display='block';setTimeout(()=>el.style.display='none',7000);}
+function fmt(s){s=s||0;const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60);return[h,m,sc].map(x=>String(x).padStart(2,'0')).join(':');}
+function fmtTs2(sec){const m=Math.floor(sec/60),s=Math.floor(sec%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
+function fmtTsFull(ts){if(!ts)return'00:00:00';const p=ts.split(':').map(Number);return p.length===2?'00:'+p.map(x=>String(x).padStart(2,'0')).join(':'):p.map(x=>String(x).padStart(2,'0')).join(':');}
+function toSec(ts){if(!ts)return 0;const p=ts.split(':').map(Number);return p.length===2?p[0]*60+p[1]:p[0]*3600+p[1]*60+p[2];}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+document.addEventListener('DOMContentLoaded',loadSaved);
+</script>
+
+<!-- SUPABASE SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ══════════════════════════════════════════
+//  SUPABASE CONFIG
+// ══════════════════════════════════════════
+const SUPABASE_URL='https://smirxrbwyreqjfvskrbq.supabase.co';
+const SUPABASE_KEY='sb_publishable_62NcPNjNYou9wUaoWFH_gw_LoNiy7Ma';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let sbUser=null;
+let authMode='login'; // 'login' | 'register'
+
+// ── INIT: check session on load ──
+async function initSupabase(){
+  const{data:{session}}=await sb.auth.getSession();
+  if(session?.user){
+    sbUser=session.user;
+    updateAuthUI();
+  }
+  // Listen for auth changes
+  sb.auth.onAuthStateChange((_,session)=>{
+    sbUser=session?.user||null;
+    updateAuthUI();
+  });
+}
+
+function updateAuthUI(){
+  const loginBtn=$('sb-login-btn');
+  const userInfo=$('sb-user-info');
+  const userName=$('sb-user-name');
+  const avatar=$('sb-avatar');
+  if(sbUser){
+    loginBtn.style.display='none';
+    userInfo.style.display='flex';
+    const name=sbUser.user_metadata?.name||sbUser.email||'GV';
+    userName.textContent=name;
+    avatar.textContent=name[0].toUpperCase();
+    // Load keys từ Supabase sau khi đăng nhập
+    loadKeysFromSupabase();
+  } else {
+    loginBtn.style.display='flex';
+    userInfo.style.display='none';
+  }
+}
+
+// ── LƯU KEYS VÀO SUPABASE ──
+async function saveKeysToSupabase(){
+  if(!sbUser)return;
+  try{
+    await sb.from('teacher_settings').upsert({
+      teacher_id:sbUser.id,
+      openai_key:$('oai-key')?.value.trim()||'',
+      claude_key:$('api-key')?.value.trim()||'',
+      azure_key:$('azure-key')?.value.trim()||'',
+      azure_region:$('azure-region')?.value.trim()||'eastasia',
+      google_client_id:$('google-client-id')?.value.trim()||'',
+      updated_at:new Date().toISOString()
+    });
+    console.log('✅ Keys đã lưu vào Supabase');
+  }catch(e){console.warn('Lưu keys lỗi:',e);}
+}
+
+// ── TẢI KEYS TỪ SUPABASE ──
+async function loadKeysFromSupabase(){
+  if(!sbUser)return;
+  try{
+    const{data,error}=await sb.from('teacher_settings')
+      .select('*').eq('teacher_id',sbUser.id).single();
+    if(error||!data)return;
+    // Điền vào ô input + localStorage
+    if(data.openai_key){
+      $('oai-key').value=data.openai_key;
+      localStorage.setItem('oaiKey',data.openai_key);
+    }
+    if(data.claude_key){
+      $('api-key').value=data.claude_key;
+      localStorage.setItem('claudeKey',data.claude_key);
+    }
+    if(data.azure_key&&$('azure-key')) $('azure-key').value=data.azure_key;
+    if(data.azure_region&&$('azure-region')) $('azure-region').value=data.azure_region;
+    if(data.google_client_id&&$('google-client-id')){
+      $('google-client-id').value=data.google_client_id;
+      localStorage.setItem('gClientId',data.google_client_id);
+    }
+    checkKey();
+    console.log('✅ Keys đã tải từ Supabase');
+  }catch(e){console.warn('Tải keys lỗi:',e);}
+}
+
+// ── AUTH MODAL ──
+function showAuthModal(){
+  $('auth-modal').style.display='flex';
+  setTimeout(()=>$('auth-email')?.focus(),100);
+}
+function closeAuthModal(){
+  $('auth-modal').style.display='none';
+  $('auth-error').style.display='none';
+}
+function switchAuthTab(mode){
+  authMode=mode;
+  $('tab-login').style.borderBottomColor=mode==='login'?'var(--accent)':'transparent';
+  $('tab-login').style.color=mode==='login'?'var(--accent)':'var(--text3)';
+  $('tab-register').style.borderBottomColor=mode==='register'?'var(--accent)':'transparent';
+  $('tab-register').style.color=mode==='register'?'var(--accent)':'var(--text3)';
+  $('register-name-wrap').style.display=mode==='register'?'block':'none';
+  $('auth-submit-btn').textContent=mode==='login'?'Đăng nhập':'Đăng ký';
+}
+
+async function submitAuth(){
+  const email=$('auth-email').value.trim();
+  const password=$('auth-password').value.trim();
+  const name=$('auth-name')?.value.trim()||'';
+  const errEl=$('auth-error');
+  const btn=$('auth-submit-btn');
+  if(!email||!password){errEl.textContent='Vui lòng nhập email và mật khẩu';errEl.style.display='block';return;}
+  btn.textContent='Đang xử lý...';btn.disabled=true;
+  try{
+    if(authMode==='login'){
+      const{error}=await sb.auth.signInWithPassword({email,password});
+      if(error)throw error;
+    } else {
+      const{data,error}=await sb.auth.signUp({email,password,options:{data:{name}}});
+      if(error)throw error;
+      // Dùng user từ response signUp luôn, không gọi getUser() lại
+      if(data?.user?.id){
+        await sb.from('teachers').upsert({id:data.user.id,email,name:name||email});
+      }
+    }
+    closeAuthModal();
+    showErr('✅ Đăng nhập thành công! Kết quả chấm bài sẽ được lưu tự động.');
+  }catch(e){
+    errEl.textContent=e.message||'Lỗi đăng nhập';errEl.style.display='block';
+  }finally{
+    btn.textContent=authMode==='login'?'Đăng nhập':'Đăng ký';btn.disabled=false;
+  }
+}
+
+async function signOut(){
+  try{
+    // Dừng tác vụ lưu key đang chờ để tránh ghi lại sau khi đăng xuất
+    clearTimeout(_saveKeysTimer);
+
+    await sb.auth.signOut();
+
+    // Xoá API key khỏi bộ nhớ trình duyệt
+    localStorage.removeItem('oaiKey');
+    localStorage.removeItem('claudeKey');
+
+    // Xoá API key đang hiển thị trên giao diện
+    if($('oai-key')) $('oai-key').value='';
+    if($('api-key')) $('api-key').value='';
+
+    // Cập nhật trạng thái key mà không gọi checkKey(), tránh tạo timer lưu mới
+    const st=$('api-status');
+    if(st){
+      st.textContent='Chưa có key';
+      st.className='api-status bad';
+    }
+
+    $('user-menu').style.display='none';
+    showErr('Đã đăng xuất và xoá API key khỏi thiết bị');
+  }catch(e){
+    showErr('Đăng xuất thất bại: '+(e.message||'Lỗi không xác định'));
+  }
+}
+
+// ── USER MENU ──
+function showUserMenu(){
+  const menu=$('user-menu');
+  const isOpen=menu.style.display==='block';
+  menu.style.display=isOpen?'none':'block';
+  $('user-menu-name').textContent=sbUser?.user_metadata?.name||sbUser?.email||'';
+  if(!isOpen)setTimeout(()=>document.addEventListener('click',()=>menu.style.display='none',{once:true}),100);
+}
+
+// ── SAVE RESULT TO SUPABASE ──
+async function saveResultToSupabase(data, studentInfo, fileName){
+  if(!sbUser){return;} // Chưa đăng nhập thì thôi
+  try{
+    const{error}=await sb.from('grading_results').insert({
+      teacher_id:sbUser.id,
+      student_name:studentInfo?.name||fileName||'Unknown',
+      course_name:studentInfo?.course||'',
+      assignment_name:studentInfo?.assignment||'',
+      file_name:fileName||'audio',
+      scores:data.scores||{},
+      result_data:{
+        scores:data.scores,
+        notes:data.notes,
+        pronunciationGroups:data.pronunciationGroups,
+        grammarErrors:data.grammarErrors,
+        lexicalErrors:data.lexicalErrors,
+        segments:data.segments,
+        inlineErrors:data.inlineErrors,
+        full_text:data.full_text
+      }
+    });
+    if(!error) console.log('✅ Đã lưu kết quả vào Supabase');
+    else console.warn('Lưu Supabase lỗi:',error);
+  }catch(e){console.warn('Supabase save error:',e);}
+}
+
+// ── LOAD HISTORY FROM SUPABASE ──
+async function showHistory(){
+  $('user-menu').style.display='none';
+  $('history-modal').style.display='flex';
+  const listEl=$('history-modal-list');
+  listEl.innerHTML='<div style="text-align:center;color:var(--text3);padding:20px;">Đang tải...</div>';
+  if(!sbUser){listEl.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px;">Vui lòng đăng nhập để xem lịch sử</div>';return;}
+  try{
+    const{data,error}=await sb.from('grading_results')
+      .select('*')
+      .eq('teacher_id',sbUser.id)
+      .order('created_at',{ascending:false})
+      .limit(50);
+    if(error)throw error;
+    if(!data?.length){listEl.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px;">Chưa có bài nào được lưu</div>';return;}
+    listEl.innerHTML=data.map(r=>{
+      const s=r.scores||{};
+      const date=new Date(r.created_at).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div onclick="loadFromHistory('${r.id}')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--border);margin-bottom:8px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0;">${(r.student_name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.student_name||'Học sinh')}</div>
+          <div style="font-size:11px;color:var(--text3);">${esc(r.course_name||'')}${r.assignment_name?' · '+esc(r.assignment_name):''} · ${date}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent);">${s.overall||'--'}</div>
+          <div style="font-size:10px;color:var(--text3);">Band</div>
+        </div>
+      </div>`;
+    }).join('');
+    window._historyData=data;
+  }catch(e){listEl.innerHTML=`<div style="color:var(--red);padding:20px;">${esc(e.message)}</div>`;}
+}
+
+async function loadFromHistory(id){
+  const item=window._historyData?.find(r=>r.id===id);
+  if(!item?.result_data)return;
+  closeHistoryModal();
+  currentData=item.result_data;
+  currentStudentInfo={name:item.student_name,course:item.course_name,assignment:item.assignment_name};
+  audioFile=null;
+  $('fname').textContent=item.file_name||'audio';
+  $('loading-screen').style.display='none';
+  $('upload-screen').style.display='none';
+  $('app-screen').style.display='block';
+  renderScoresOnly(item.result_data);
+  renderTranscript(item.result_data.segments||[],item.result_data.inlineErrors||[],item.result_data.repeatedWords||[]);
+  renderPronGroups(item.result_data.pronunciationGroups||[],item.result_data.scores?.pronVsNative);
+  renderGrammarErrors(item.result_data.grammarErrors||[]);
+  renderLexErrors(item.result_data.lexicalErrors||[]);
+  if(currentStudentInfo)renderStudentNav();
+}
+
+function closeHistoryModal(){$('history-modal').style.display='none';}
+
+// Gọi initSupabase khi DOM ready
+document.addEventListener('DOMContentLoaded',()=>{
+  initSupabase();
+  // Đóng user menu khi click ngoài
+  document.addEventListener('click',(e)=>{
+    if(!$('sb-avatar')?.contains(e.target)&&!$('user-menu')?.contains(e.target)){
+      $('user-menu').style.display='none';
+    }
+  });
+});
+</script>
+</body>
+</html>

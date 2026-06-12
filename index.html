@@ -365,7 +365,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:11p
       </div>
       <div id="sb-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;cursor:pointer;" onclick="showUserMenu()"></div>
     </div>
-    <button class="hdr-btn google" id="goog-login-btn" onclick="startGoogleLogin()">
+    <button class="hdr-btn google" id="goog-login-btn" onclick="openClassroomSetup()">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="14"> Classroom
     </button>
     <img id="goog-avatar" class="goog-avatar" style="display:none" onclick="toggleClassroomPanel()" title="Google Classroom">
@@ -432,8 +432,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:11p
       <label>Google OAuth Client ID</label>
       <input type="text" id="google-client-id" placeholder="xxxx.apps.googleusercontent.com" oninput="saveClientId()">
       <span style="font-size:11px;color:var(--text3)">Lấy từ Google Cloud Console → Credentials</span>
+      <div style="display:flex;gap:7px;margin-top:4px;">
+        <button class="bsm bp" style="flex:1" onclick="startGoogleLogin()">Đăng nhập Google</button>
+        <button class="bsm bg2" style="flex:1;color:var(--red)" onclick="clearGoogleClientId()">Xoá Client ID đã lưu</button>
+      </div>
     </div>
-    <div class="cp-empty">Đăng nhập Google để xem lớp học</div>
+    <div class="cp-empty">Nhập Client ID rồi đăng nhập để xem lớp học.</div>
   </div>
 </div>
 
@@ -673,7 +677,7 @@ function renderHistory(){
 
 function addToHistory(data,studentInfo,fileName){
   historyItems.unshift({data,studentInfo,fileName,timestamp:new Date(),audioSrc:aud?.src||null});
-  if(historyItems.length>50)historyItems.pop();
+  if(historyItems.length>10)historyItems.length=10;
 }
 
 function restoreFromHistory(idx){
@@ -1763,8 +1767,46 @@ function resetToUpload(){
 let gToken=null,gUser=null,selectedCourse=null,selectedAssignment=null;
 const courseColors=['#7c6af7','#5eead4','#f472b6','#fb923c','#4ade80','#fbbf24'];
 
-function saveClientId(){localStorage.setItem('gClientId',$('google-client-id').value.trim());}
-function getClientId(){return $('google-client-id').value.trim()||localStorage.getItem('gClientId')||'';}
+function saveClientId(){
+  const value=$('google-client-id')?.value.trim()||'';
+  if(value)localStorage.setItem('gClientId',value);
+  else localStorage.removeItem('gClientId');
+  clearTimeout(_saveKeysTimer);
+  _saveKeysTimer=setTimeout(saveKeysToSupabase,800);
+}
+function getClientId(){return $('google-client-id')?.value.trim()||localStorage.getItem('gClientId')||'';}
+
+function renderClassroomSetup(){
+  const saved=localStorage.getItem('gClientId')||'';
+  $('cp-body').innerHTML=`<div class="client-id-wrap">
+    <label>Google OAuth Client ID</label>
+    <input type="text" id="google-client-id" placeholder="xxxx.apps.googleusercontent.com" value="${esc(saved)}" oninput="saveClientId()">
+    <span style="font-size:11px;color:var(--text3)">Lấy từ Google Cloud Console → Credentials</span>
+    <div style="display:flex;gap:7px;margin-top:4px;">
+      <button class="bsm bp" style="flex:1" onclick="startGoogleLogin()">Đăng nhập Google</button>
+      <button class="bsm bg2" style="flex:1;color:var(--red)" onclick="clearGoogleClientId()">Xoá Client ID đã lưu</button>
+    </div>
+  </div><div class="cp-empty">Nhập Client ID rồi đăng nhập để xem lớp học.</div>`;
+}
+
+function openClassroomSetup(){
+  if(gToken){toggleClassroomPanel();return;}
+  renderClassroomSetup();
+  $('classroom-panel').classList.add('open');
+}
+
+async function clearGoogleClientId(){
+  localStorage.removeItem('gClientId');
+  const input=$('google-client-id');if(input)input.value='';
+  gToken=null;gUser=null;selectedCourse=null;selectedAssignment=null;
+  $('goog-avatar').style.display='none';
+  $('goog-login-btn').style.display='flex';
+  if(sbUser){
+    await sb.from('teacher_settings').update({google_client_id:'',updated_at:new Date().toISOString()}).eq('teacher_id',sbUser.id);
+  }
+  renderClassroomSetup();
+  showErr('Đã xoá Google OAuth Client ID đã lưu. Hãy nhập Client ID mới.');
+}
 
 function startGoogleLogin(){
   const cid=getClientId();
@@ -1790,7 +1832,9 @@ async function fetchUserInfo(){
 
 function toggleClassroomPanel(){
   $('classroom-panel').classList.toggle('open');
-  if($('classroom-panel').classList.contains('open')&&gToken)loadCourses();
+  if(!$('classroom-panel').classList.contains('open'))return;
+  if(gToken)loadCourses();
+  else renderClassroomSetup();
 }
 
 function showTab(tab){
@@ -1880,7 +1924,7 @@ async function loadStudents(assignmentId){
       if(state==='TURNED_IN'){stLabel='Đã nộp';stClass='st-turned';}
       else if(state==='RETURNED'){stLabel='Đã trả';stClass='st-graded';}
       else{stLabel='Chưa nộp';stClass='st-missing';}
-      const canGrade=audioFiles.length>0&&(state==='TURNED_IN'||state==='RETURNED');
+      const canGrade=audioFiles.length>0;
       const fileCount=audioFiles.length>1?` (${audioFiles.length} file)`:'';
       html+=`<div class="student-item">
         <div class="student-avatar">${initials}</div>
@@ -2257,6 +2301,8 @@ function showUserMenu(){
 async function saveResultToSupabase(data, studentInfo, fileName){
   if(!sbUser){return;} // Chưa đăng nhập thì thôi
   try{
+    const sourceDriveFileId=studentInfo?._currentDriveFileId||null;
+    const sourceDriveFileName=studentInfo?._currentDriveFileName||fileName||'audio';
     const{error}=await sb.from('grading_results').insert({
       teacher_id:sbUser.id,
       student_name:studentInfo?.name||fileName||'Unknown',
@@ -2272,12 +2318,26 @@ async function saveResultToSupabase(data, studentInfo, fileName){
         lexicalErrors:data.lexicalErrors,
         segments:data.segments,
         inlineErrors:data.inlineErrors,
-        full_text:data.full_text
+        full_text:data.full_text,
+        sourceDriveFileId,
+        sourceDriveFileName
       }
     });
-    if(!error) console.log('✅ Đã lưu kết quả vào Supabase');
-    else console.warn('Lưu Supabase lỗi:',error);
+    if(error){console.warn('Lưu Supabase lỗi:',error);return;}
+    console.log('✅ Đã lưu kết quả vào Supabase');
+    await trimSupabaseHistory();
   }catch(e){console.warn('Supabase save error:',e);}
+}
+
+async function trimSupabaseHistory(){
+  if(!sbUser)return;
+  const{data,error}=await sb.from('grading_results')
+    .select('id')
+    .eq('teacher_id',sbUser.id)
+    .order('created_at',{ascending:false});
+  if(error||!data||data.length<=10)return;
+  const oldIds=data.slice(10).map(x=>x.id);
+  if(oldIds.length)await sb.from('grading_results').delete().in('id',oldIds);
 }
 
 // ── LOAD HISTORY FROM SUPABASE ──
@@ -2292,7 +2352,7 @@ async function showHistory(){
       .select('*')
       .eq('teacher_id',sbUser.id)
       .order('created_at',{ascending:false})
-      .limit(50);
+      .limit(10);
     if(error)throw error;
     if(!data?.length){listEl.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px;">Chưa có bài nào được lưu</div>';return;}
     listEl.innerHTML=data.map(r=>{
@@ -2319,8 +2379,17 @@ async function loadFromHistory(id){
   if(!item?.result_data)return;
   closeHistoryModal();
   currentData=item.result_data;
-  currentStudentInfo={name:item.student_name,course:item.course_name,assignment:item.assignment_name};
+  currentStudentInfo={
+    name:item.student_name,course:item.course_name,assignment:item.assignment_name,
+    _currentDriveFileId:item.result_data.sourceDriveFileId||null,
+    _currentDriveFileName:item.result_data.sourceDriveFileName||item.file_name||'audio'
+  };
   audioFile=null;
+  aud=$('aud');
+  if(aud){aud.pause();aud.removeAttribute('src');aud.load();}
+  playing=false;$('btn-play').textContent='▶';
+  $('t-cur').textContent='00:00:00';$('t-tot').textContent='00:00:00';
+  $('fdur').textContent='--:--';$('prog-fill').style.width='0%';
   $('fname').textContent=item.file_name||'audio';
   $('loading-screen').style.display='none';
   $('upload-screen').style.display='none';
@@ -2330,7 +2399,32 @@ async function loadFromHistory(id){
   renderPronGroups(item.result_data.pronunciationGroups||[],item.result_data.scores?.pronVsNative);
   renderGrammarErrors(item.result_data.grammarErrors||[]);
   renderLexErrors(item.result_data.lexicalErrors||[]);
+  renderFluencyTab(item.result_data);
   if(currentStudentInfo)renderStudentNav();
+
+  const driveId=item.result_data.sourceDriveFileId;
+  if(driveId&&gToken){
+    $('fdur').textContent='⏳ Đang tải...';
+    try{
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files/${driveId}?alt=media&acknowledgeAbuse=true`,{headers:{Authorization:'Bearer '+gToken}});
+      if(!r.ok)throw new Error('Không tải được file từ Google Drive ('+r.status+')');
+      const blob=await r.blob();
+      const name=item.result_data.sourceDriveFileName||item.file_name||'audio';
+      audioFile=new File([blob],name,{type:blob.type||'audio/mp4'});
+      aud.src=URL.createObjectURL(audioFile);
+      aud.onloadedmetadata=()=>{$('t-tot').textContent=fmt(aud.duration);$('fdur').textContent=fmt(aud.duration);};
+      aud.ontimeupdate=updateProg;
+      aud.onended=()=>{playing=false;$('btn-play').textContent='▶';};
+    }catch(e){
+      $('fdur').textContent='Không có audio';
+      showErr(e.message+' — hãy đăng nhập lại Google Classroom.');
+    }
+  }else if(driveId&&!gToken){
+    $('fdur').textContent='Cần Classroom';
+    showErr('Hãy đăng nhập Google Classroom để tải đúng file audio của bài này.');
+  }else{
+    $('fdur').textContent='Không có audio';
+  }
 }
 
 function closeHistoryModal(){$('history-modal').style.display='none';}

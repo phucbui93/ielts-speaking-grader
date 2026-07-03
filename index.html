@@ -345,8 +345,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:11p
   <div class="logo"><div class="logo-icon">🎙</div><span>IELTS Speaking Grader</span></div>
   <div class="header-right">
     <div class="api-key-wrap">
-      <label style="color:var(--accent2)">OPENAI</label>
-      <input type="password" id="oai-key" placeholder="sk-..." oninput="checkKey()" style="width:120px;">
+      <label style="color:var(--accent2)">GROQ</label>
+      <input type="password" id="oai-key" placeholder="gsk_..." oninput="checkKey()" style="width:120px;">
     </div>
     <div class="api-key-wrap">
       <label>CLAUDE</label>
@@ -440,7 +440,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:11p
 <!-- UPLOAD SCREEN -->
 <div id="upload-screen">
   <h1 class="upload-title">Chấm bài Speaking<br><span>nhanh & chính xác</span></h1>
-  <p class="upload-sub">Upload file ghi âm — Whisper transcribe, Claude phân tích 4 tiêu chí IELTS</p>
+  <p class="upload-sub">Upload file ghi âm — Groq transcribe, Claude phân tích 4 tiêu chí IELTS</p>
   <div class="upload-zone" id="dropzone">
     <input type="file" id="file-input" accept=".mp3,.m4a,.wav,.flac,.mp4,.webm,.ogg">
     <span class="upload-icon">📁</span>
@@ -451,7 +451,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:11p
       <span class="fmt-badge">wav</span><span class="fmt-badge">flac</span><span class="fmt-badge">webm</span>
     </div>
   </div>
-  <div class="api-warning" id="api-warning">⚠️ Vui lòng nhập đủ OpenAI key và Claude key trước khi upload.</div>
+  <div class="api-warning" id="api-warning">⚠️ Vui lòng nhập đủ Groq key và Claude key trước khi upload.</div>
 </div>
 
 <!-- LOADING -->
@@ -459,7 +459,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:11p
   <div class="loader-ring"></div>
   <div style="text-align:center"><div class="loader-title">Đang phân tích bài nói...</div><div class="loader-msg" id="lmsg">Chuẩn bị...</div></div>
   <div class="loader-steps">
-    <div class="loader-step" id="s1"><span class="step-dot"></span>Whisper transcribe audio → văn bản</div>
+    <div class="loader-step" id="s1"><span class="step-dot"></span>Groq transcribe audio → văn bản</div>
     <div class="loader-step" id="s2"><span class="step-dot"></span>Phân tích phát âm & trọng âm</div>
     <div class="loader-step" id="s3"><span class="step-dot"></span>Kiểm tra ngữ pháp & từ vựng</div>
     <div class="loader-step" id="s4"><span class="step-dot"></span>Tính điểm 4 tiêu chí IELTS</div>
@@ -719,17 +719,18 @@ function renderFluencyTab(data){
 let _saveKeysTimer=null;
 function checkKey(){
   const claude=$('api-key').value.trim();
-  const oai=$('oai-key').value.trim();
+  const groq=$('oai-key').value.trim();
   const st=$('api-status');
-  const ok=claude.startsWith('sk-ant-')&&claude.length>20&&oai.startsWith('sk-')&&oai.length>20;
+  // Groq key bắt đầu bằng gsk_ (vẫn chấp nhận sk- cho tương thích cũ)
+  const groqOk=(groq.startsWith('gsk_')||groq.startsWith('sk-'))&&groq.length>20;
+  const claudeOk=claude.startsWith('sk-ant-')&&claude.length>20;
+  const ok=claudeOk&&groqOk;
   if(ok){st.textContent='✓ Sẵn sàng';st.className='api-status ok';}
-  else if(claude.startsWith('sk-ant-')&&!oai.startsWith('sk-')){st.textContent='Thiếu OpenAI key';st.className='api-status bad';}
-  else if(!claude.startsWith('sk-ant-')&&oai.startsWith('sk-')){st.textContent='Thiếu Claude key';st.className='api-status bad';}
+  else if(claudeOk&&!groqOk){st.textContent='Thiếu Groq key';st.className='api-status bad';}
+  else if(!claudeOk&&groqOk){st.textContent='Thiếu Claude key';st.className='api-status bad';}
   else{st.textContent='Chưa có key';st.className='api-status bad';}
-  // Lưu local trước
-  localStorage.setItem('oaiKey',oai);
+  localStorage.setItem('oaiKey',groq);
   localStorage.setItem('claudeKey',claude);
-  // Lưu Supabase sau 1.5s (debounce tránh gọi API liên tục)
   clearTimeout(_saveKeysTimer);
   _saveKeysTimer=setTimeout(saveKeysToSupabase,1500);
 }
@@ -753,7 +754,8 @@ fi.addEventListener('change',e=>{if(e.target.files[0])startFile(e.target.files[0
 
 function startFile(f){
   const cl=$('api-key').value.trim(),oai=$('oai-key').value.trim();
-  if(!cl.startsWith('sk-ant-')||!oai.startsWith('sk-')){$('api-warning').style.display='block';return;}
+  const groqOk=oai.startsWith('gsk_')||oai.startsWith('sk-');
+  if(!cl.startsWith('sk-ant-')||!groqOk){$('api-warning').style.display='block';return;}
   $('api-warning').style.display='none';
   audioFile=f;
   showLoading();
@@ -778,7 +780,7 @@ async function runAnalysis(file,claudeKey,manualText,oaiKey){
       tr=buildManualTranscript(manualText);
       step(1,'done');
     } else {
-      step(1,'active');msg('Whisper đang transcribe audio...');
+      step(1,'active');msg('Groq đang transcribe audio...');
       tr=await transcribeWhisper(file,oaiKey);
       step(1,'done');
     }
@@ -796,18 +798,17 @@ async function runAnalysis(file,claudeKey,manualText,oaiKey){
   }
 }
 
-async function transcribeWhisper(file,oaiKey){
+async function transcribeWhisper(file,groqKey){
   if(file.size>25*1024*1024) throw new Error('File quá lớn — tối đa 25MB');
   msg('Đang chuẩn bị audio...');
 
-  // Convert file sang webm qua AudioContext + MediaRecorder để đảm bảo Whisper nhận được
+  // Convert file sang webm qua AudioContext để đảm bảo Whisper nhận được
   let sendFile=file;
   try{
     sendFile=await convertToWebm(file);
-    msg('Đang gửi tới Whisper...');
+    msg('Groq đang transcribe...');
   }catch(convErr){
-    // Fallback: gửi file gốc với tên đã fix
-    msg('Đang gửi tới Whisper...');
+    msg('Groq đang transcribe...');
     const origExt=(file.name||'').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'m4a';
     const validExts=['flac','m4a','mp3','mp4','mpeg','mpga','oga','ogg','wav','webm'];
     const ext=validExts.includes(origExt)?origExt:'m4a';
@@ -818,15 +819,15 @@ async function transcribeWhisper(file,oaiKey){
 
   const form=new FormData();
   form.append('file',sendFile,sendFile.name);
-  form.append('model','whisper-1');
+  form.append('model','whisper-large-v3-turbo');
   form.append('language','en');
   form.append('response_format','verbose_json');
   form.append('timestamp_granularities[]','segment');
   form.append('timestamp_granularities[]','word');
-  const r=await fetch('https://api.openai.com/v1/audio/transcriptions',{
-    method:'POST',headers:{'Authorization':'Bearer '+oaiKey},body:form
+  const r=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',{
+    method:'POST',headers:{'Authorization':'Bearer '+groqKey},body:form
   });
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error('Whisper lỗi: '+(e.error?.message||r.status));}
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error('Groq Whisper lỗi: '+(e.error?.message||r.status));}
   const d=await r.json();
   msg('Transcribe xong!');
   wordTimings=(d.words||[]).map(w=>({word:w.word,startSec:w.start,endSec:w.end}));

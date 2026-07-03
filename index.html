@@ -1930,8 +1930,15 @@ async function loadStudents(assignmentId){
     totalStudents=subs.filter(s=>s.state==='TURNED_IN'||s.state==='RETURNED').length;
     updateProgressBanner();
 
-    const stateOrder={TURNED_IN:0,RETURNED:1,CREATED:2,NEW:3};
-    subs.sort((a,b)=>(stateOrder[a.state]||9)-(stateOrder[b.state]||9));
+    // Ưu tiên: đã nộp > đã trả > chưa nộp NHƯNG có file > còn lại
+    const hasFiles=s=>(s.assignmentSubmission?.attachments||[]).filter(a=>a.driveFile).length>0;
+    const rank=s=>{
+      if(s.state==='TURNED_IN')return 0;
+      if(s.state==='RETURNED')return 1;
+      if(hasFiles(s))return 2; // chưa nộp nhưng có file — vẫn chấm được
+      return 5; // chưa nộp, không file
+    };
+    subs.sort((a,b)=>rank(a)-rank(b));
 
     let html=`<div class="cp-section-label">📝 ${esc(selectedAssignment?.title||'')} — ${subs.length} học sinh</div>`;
     subs.forEach(sub=>{
@@ -1944,15 +1951,20 @@ async function loadStudents(assignmentId){
       let stLabel='',stClass='';
       if(state==='TURNED_IN'){stLabel='Đã nộp';stClass='st-turned';}
       else if(state==='RETURNED'){stLabel='Đã trả';stClass='st-graded';}
+      else if(audioFiles.length>0){stLabel='Chưa nộp';stClass='st-missing';}
       else{stLabel='Chưa nộp';stClass='st-missing';}
-      const canGrade=audioFiles.length>0&&(state==='TURNED_IN'||state==='RETURNED');
-      const fileCount=audioFiles.length>1?` (${audioFiles.length} file)`:'';
+      // Chấm được miễn là có file audio, kể cả HS chưa bấm nộp trên Classroom
+      const canGrade=audioFiles.length>0;
+      const isUnsubmittedWithFiles=audioFiles.length>0&&state!=='TURNED_IN'&&state!=='RETURNED';
+      const fileCount=audioFiles.length>0?` (${audioFiles.length} file)`:'';
       // Đánh dấu HS đã chấm trong session này
       const isGraded=gradedStudents.has(name);
       const gradedMark=isGraded?'<span style="color:var(--green);font-size:11px;margin-left:4px;">✓ Đã chấm</span>':'';
+      // Nhãn phụ cho HS chưa nộp nhưng đã có file trên Drive
+      const draftMark=isUnsubmittedWithFiles?'<span style="color:var(--yellow);font-size:10px;margin-left:4px;">📎 có file, chưa nộp</span>':'';
       html+=`<div class="student-item"${isGraded?' style="opacity:.7"':''}>
         <div class="student-avatar">${initials}</div>
-        <span class="student-name">${esc(name)}${gradedMark}</span>
+        <span class="student-name">${esc(name)}${gradedMark}${draftMark}</span>
         <span class="student-status ${stClass}">${stLabel}${fileCount}</span>
         ${canGrade?`<button class="grade-btn" onclick='gradeStudent(${JSON.stringify(sub.id)},${JSON.stringify(sub.userId)},${JSON.stringify(name)},${JSON.stringify(audioFiles)})'>${isGraded?'↻ Chấm lại':'▶ Chấm'}</button>`:''}
       </div>`;

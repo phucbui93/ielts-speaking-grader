@@ -794,7 +794,7 @@ async function runAnalysis(file,claudeKey,manualText,oaiKey){
     render(data,file.name);
   }catch(e){
     showErr(e.message||'Lỗi không xác định. Kiểm tra API key và thử lại.');
-    resetToUpload();
+    restoreOrUpload();
   }
 }
 
@@ -802,19 +802,21 @@ async function transcribeWhisper(file,groqKey){
   if(file.size>25*1024*1024) throw new Error('File quá lớn — tối đa 25MB');
   msg('Đang chuẩn bị audio...');
 
-  // Convert file sang webm qua AudioContext để đảm bảo Whisper nhận được
-  let sendFile=file;
+  // Luôn convert sang WAV 16kHz chuẩn — Groq nhận ổn định nhất
+  let sendFile;
   try{
     sendFile=await convertToWebm(file);
     msg('Groq đang transcribe...');
   }catch(convErr){
-    msg('Groq đang transcribe...');
+    // Convert lỗi → thử gửi file gốc với tên/mime chuẩn hoá
+    console.warn('Convert audio lỗi, thử file gốc:',convErr);
+    msg('Groq đang transcribe (file gốc)...');
     const origExt=(file.name||'').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'m4a';
     const validExts=['flac','m4a','mp3','mp4','mpeg','mpga','oga','ogg','wav','webm'];
     const ext=validExts.includes(origExt)?origExt:'m4a';
     const mime={'m4a':'audio/mp4','mp3':'audio/mpeg','wav':'audio/wav','flac':'audio/flac',
       'webm':'audio/webm','ogg':'audio/ogg','mp4':'audio/mp4','mpeg':'audio/mpeg'}[ext]||'audio/mp4';
-    sendFile=new File([new Blob([file],{type:mime})],`audio.${ext}`,{type:mime});
+    sendFile=new File([file],`audio.${ext}`,{type:mime});
   }
 
   const form=new FormData();
@@ -827,7 +829,41 @@ async function transcribeWhisper(file,groqKey){
   const r=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',{
     method:'POST',headers:{'Authorization':'Bearer '+groqKey},body:form
   });
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error('Groq Whisper lỗi: '+(e.error?.message||r.status));}
+  if(!r.ok){
+    const e=await r.json().catch(()=>({}));
+    const errMsg=e.error?.message||('HTTP '+r.status);
+    // Nếu lỗi "could not process file" và đang gửi WAV đã convert → thử lại với file gốc
+    if(/could not process|invalid|decode/i.test(errMsg)&&sendFile.name==='audio.wav'){
+      msg('Thử lại với file gốc...');
+      const origExt=(file.name||'').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'')||'m4a';
+      const validExts=['flac','m4a','mp3','mp4','mpeg','mpga','oga','ogg','wav','webm'];
+      const ext=validExts.includes(origExt)?origExt:'m4a';
+      const mime={'m4a':'audio/mp4','mp3':'audio/mpeg','wav':'audio/wav','flac':'audio/flac',
+        'webm':'audio/webm','ogg':'audio/ogg','mp4':'audio/mp4','mpeg':'audio/mpeg'}[ext]||'audio/mp4';
+      const retryFile=new File([file],`audio.${ext}`,{type:mime});
+      const form2=new FormData();
+      form2.append('file',retryFile,retryFile.name);
+      form2.append('model','whisper-large-v3-turbo');
+      form2.append('language','en');
+      form2.append('response_format','verbose_json');
+      form2.append('timestamp_granularities[]','segment');
+      form2.append('timestamp_granularities[]','word');
+      const r2=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',{
+        method:'POST',headers:{'Authorization':'Bearer '+groqKey},body:form2
+      });
+      if(r2.ok){
+        const d2=await r2.json();
+        msg('Transcribe xong!');
+        wordTimings=(d2.words||[]).map(w=>({word:w.word,startSec:w.start,endSec:w.end}));
+        const segs2=(d2.segments||[]).map(s=>({timestamp:fmtTs2(s.start),startSec:s.start,text:s.text.trim()}));
+        const grouped2=groupSegs(segs2);
+        return{segments:grouped2,full_text:d2.text||grouped2.map(s=>s.text).join(' ')};
+      }
+      const e2=await r2.json().catch(()=>({}));
+      throw new Error('Groq Whisper lỗi: '+(e2.error?.message||('HTTP '+r2.status)));
+    }
+    throw new Error('Groq Whisper lỗi: '+errMsg);
+  }
   const d=await r.json();
   msg('Transcribe xong!');
   wordTimings=(d.words||[]).map(w=>({word:w.word,startSec:w.start,endSec:w.end}));
@@ -837,41 +873,35 @@ async function transcribeWhisper(file,groqKey){
 }
 
 async function convertToWebm(file){
-  // Decode audio → re-encode sang webm qua MediaRecorder
-  return new Promise(async(resolve,reject)=>{
-    try{
-      const arrayBuf=await file.arrayBuffer();
-      const audioCtx=new AudioContext();
-      const decoded=await audioCtx.decodeAudioData(arrayBuf);
-      audioCtx.close();
+  // Decode → resample 16kHz mono → WAV chuẩn (Groq nhận tốt nhất)
+  const arrayBuf=await file.arrayBuffer();
+  let audioCtx;
+  try{
+    audioCtx=new AudioContext();
+  }catch(e){
+    audioCtx=new (window.webkitAudioContext||window.AudioContext)();
+  }
+  let decoded;
+  try{
+    decoded=await audioCtx.decodeAudioData(arrayBuf.slice(0));
+  }catch(e){
+    audioCtx.close();
+    throw new Error('Không giải mã được audio — file có thể hỏng');
+  }
+  audioCtx.close();
 
-      // Tạo stream từ AudioBuffer
-      const offCtx=new OfflineAudioContext(decoded.numberOfChannels,decoded.length,decoded.sampleRate);
-      const src=offCtx.createBufferSource();
-      src.buffer=decoded;
-      src.connect(offCtx.destination);
-      src.start();
-      const rendered=await offCtx.startRendering();
+  // Resample thẳng sang 16kHz mono trong 1 bước
+  const targetRate=16000;
+  const outLen=Math.ceil(decoded.duration*targetRate);
+  const offCtx=new OfflineAudioContext(1,outLen,targetRate);
+  const src=offCtx.createBufferSource();
+  src.buffer=decoded;
+  src.connect(offCtx.destination);
+  src.start(0);
+  const resampled=await offCtx.startRendering();
 
-      // Dùng MediaStreamDestination để record
-      const streamCtx=new AudioContext({sampleRate:16000});
-      const dest=streamCtx.createMediaStreamDestination();
-      const bufSrc=streamCtx.createBufferSource();
-      // Resample sang 16kHz
-      const offCtx2=new OfflineAudioContext(1,Math.ceil(rendered.length*16000/rendered.sampleRate),16000);
-      const src2=offCtx2.createBufferSource();
-      src2.buffer=rendered;
-      src2.connect(offCtx2.destination);
-      src2.start();
-      const resampled=await offCtx2.startRendering();
-      streamCtx.close();
-
-      // Encode sang webm
-      const wavBlob=audioBufferToWav(resampled);
-      const webmFile=new File([wavBlob],'audio.wav',{type:'audio/wav'});
-      resolve(webmFile);
-    }catch(e){reject(e);}
-  });
+  const wavBlob=audioBufferToWav(resampled);
+  return new File([wavBlob],'audio.wav',{type:'audio/wav'});
 }
 
 function groupSegs(segs){
@@ -1822,6 +1852,23 @@ function resetToUpload(){
   ['s1','s2','s3','s4','s5'].forEach(id=>$(id).className='loader-step');
 }
 
+// Khi có lỗi: nếu đang có kết quả cũ → giữ nguyên màn hình app, chỉ hiện lỗi.
+// Nếu chưa có gì → mới về màn hình upload.
+function restoreOrUpload(){
+  $('loading-screen').style.display='none';
+  ['s1','s2','s3','s4','s5'].forEach(id=>$(id).className='loader-step');
+  if(currentData){
+    // Có kết quả trước đó (file 1 đã chấm) → giữ nguyên, không mất dữ liệu
+    $('app-screen').style.display='block';
+    $('upload-screen').style.display='none';
+    // Đảm bảo nav học sinh vẫn hiện để bấm file khác
+    if(currentStudentInfo) renderStudentNav();
+  } else {
+    // Chưa chấm được gì → về upload
+    resetToUpload();
+  }
+}
+
 // ══════════════════════════════════════════
 //  GOOGLE CLASSROOM
 // ══════════════════════════════════════════
@@ -2057,7 +2104,7 @@ async function loadDriveAudio(driveFile,studentName,isSwitching){
   const fileName=driveFile.title||driveFile.name||'audio.m4a';
   if(!fileId){
     showErr('Không tìm được ID file Drive — thử tải file thủ công');
-    resetToUpload();return;
+    restoreOrUpload();return;
   }
   // Lưu driveFileId vào currentStudentInfo để export JSON có thể tự fetch lại
   if(currentStudentInfo){
@@ -2137,9 +2184,9 @@ async function loadDriveAudio(driveFile,studentName,isSwitching){
     const file=new File([fixedBlob],safeFileName,{type:forcedMime});
     audioFile=file;
     const cl=$('api-key').value.trim(),oai=$('oai-key').value.trim();
-    if(!cl||!oai){showErr('Nhập API key trước');resetToUpload();return;}
+    if(!cl||!oai){showErr('Nhập API key trước');restoreOrUpload();return;}
     await runAnalysis(file,cl,null,oai);
-  }catch(e){showErr(e.message);resetToUpload();}
+  }catch(e){showErr(e.message);restoreOrUpload();}
 }
 
 // ══════════════════════════════════════════
